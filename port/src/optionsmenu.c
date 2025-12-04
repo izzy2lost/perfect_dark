@@ -213,45 +213,51 @@ static MenuItemHandlerResult menuhandlerMouseSpeedY(s32 operation, struct menuit
 
 static MenuItemHandlerResult menuhandlerMouseAimSpeedX(s32 operation, struct menuitem *item, union handlerdata *data)
 {
+	f32 x, y;
 	switch (operation) {
 	case MENUOP_GETSLIDER:
-		if (g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedx < 0.f) {
+		inputMouseGetAimSpeed(&x, &y);
+		if (x < 0.f) {
 			data->slider.value = 0;
-		} else if (g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedx > 10.f) {
+		} else if (x > 10.f) {
 			data->slider.value = 1000;
 		} else {
-			data->slider.value = g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedx * 100.f + 0.5f;
+			data->slider.value = x * 100.f + 0.5f;
 		}
 		break;
 	case MENUOP_SET:
-		g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedx = (f32)data->slider.value / 100.f;
+		inputMouseGetAimSpeed(&x, &y);
+		inputMouseSetAimSpeed((f32)data->slider.value / 100.f, y);
 		break;
 	case MENUOP_GETSLIDERLABEL:
 		sprintf(data->slider.label, "%.2f", (f32)data->slider.value / 100.f);
+		break;
 	}
-
 	return 0;
 }
 
 static MenuItemHandlerResult menuhandlerMouseAimSpeedY(s32 operation, struct menuitem *item, union handlerdata *data)
 {
+	f32 x, y;
 	switch (operation) {
 	case MENUOP_GETSLIDER:
-		if (g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedy < 0.f) {
+		inputMouseGetAimSpeed(&x, &y);
+		if (y < 0.f) {
 			data->slider.value = 0;
-		} else if (g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedy > 10.f) {
+		} else if (y > 10.f) {
 			data->slider.value = 1000;
 		} else {
-			data->slider.value = g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedy * 100.f + 0.5f;
+			data->slider.value = y * 100.f + 0.5f;
 		}
 		break;
 	case MENUOP_SET:
-		g_PlayerExtCfg[g_ExtMenuPlayer].mouseaimspeedy = (f32)data->slider.value / 100.f;
+		inputMouseGetAimSpeed(&x, &y);
+		inputMouseSetAimSpeed(x, (f32)data->slider.value / 100.f);
 		break;
 	case MENUOP_GETSLIDERLABEL:
 		sprintf(data->slider.label, "%.2f", (f32)data->slider.value / 100.f);
+		break;
 	}
-
 	return 0;
 }
 
