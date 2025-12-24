@@ -2363,10 +2363,10 @@ void bmoveProcessInput(bool allowc1x, bool allowc1y, bool allowc1buttons, bool i
             // joystick is inactive, move crosshair using the mouse
             f32 dx, dy;
             inputMouseGetScaledDeltaCrosshair(&dx, &dy);
-            dx *= (0.022f / 90.0f) * PLAYER_EXTCFG().mouseaimsensx;
-            dy *= (0.022f / 90.0f) * PLAYER_EXTCFG().mouseaimsensy;
+            dx *= (0.022f / 90.0f) * PLAYER_EXTCFG().mouseaimspeedx;
+            dy *= (0.022f / 90.0f) * PLAYER_EXTCFG().mouseaimspeedy;
             const f32 norm = g_Vars.lvupdate60freal;
-            bmoveApplyCrosshairAimingMovement(PLAYER_EXTCFG().mouseaimsensx, PLAYER_EXTCFG().mouseaimsensy, dx, dy);
+            bmoveApplyCrosshairAimingMovement(PLAYER_EXTCFG().mouseaimspeedx, PLAYER_EXTCFG().mouseaimspeedy, dx, dy);
             return;
         }
 #endif
