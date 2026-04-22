@@ -834,6 +834,11 @@ s32 inputReadController(s32 idx, OSContPad *npad)
 	}
 
 	if (!pads[idx]) {
+		// No physical controller — still let the on-screen touch pad drive
+		// player 1. On desktop builds touchApplyToPad is a no-op.
+		if (idx == 0) {
+			touchApplyToPad(npad);
+		}
 		return 0;
 	}
 
