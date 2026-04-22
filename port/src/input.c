@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "system.h"
 #include "fs.h"
+#include "touch.h"
 
 #if !SDL_VERSION_ATLEAST(2, 0, 14)
 // this was added in 2.0.14
@@ -872,6 +873,12 @@ s32 inputReadController(s32 idx, OSContPad *npad)
 		if (rStickY) {
 			npad->rstick_y = (rStickY == 128) ? 127 : rStickY;
 		}
+	}
+
+	// Player 1 gets the on-screen touch pad contributions on platforms that
+	// expose one. touchApplyToPad() is a no-op on desktop builds.
+	if (idx == 0) {
+		touchApplyToPad(npad);
 	}
 
 	return 0;

@@ -14,14 +14,28 @@
         android:layout_height="wrap_content"
         android:textColor="#FFFFFF"
         android:textSize="16sp"
-        android:text="ROM not found. Select your ROM to continue."/>
+        android:text="Perfect Dark"/>
+
+    <Button
+        android:id="@+id/playButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Play"
+        android:layout_marginTop="16dp"/>
 
     <Button
         android:id="@+id/pickRomButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Select ROM"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="12dp"/>
+
+    <Button
+        android:id="@+id/editTouchButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Configure Touch Controls"
+        android:layout_marginTop="12dp"/>
 
 </LinearLayout>
 

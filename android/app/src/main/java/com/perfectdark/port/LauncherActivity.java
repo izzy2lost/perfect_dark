@@ -36,7 +36,9 @@ public class LauncherActivity extends AppCompatActivity {
 
     private View missingRomView;
     private TextView infoText;
+    private Button playButton;
     private Button pickRomButton;
+    private Button editTouchButton;
 
     private final ActivityResultLauncher<String[]> romPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), this::onRomPicked);
@@ -48,24 +50,44 @@ public class LauncherActivity extends AppCompatActivity {
 
         missingRomView = findViewById(R.id.missingRomContainer);
         infoText = findViewById(R.id.infoText);
+        playButton = findViewById(R.id.playButton);
         pickRomButton = findViewById(R.id.pickRomButton);
+        editTouchButton = findViewById(R.id.editTouchButton);
 
         pickRomButton.setOnClickListener(v -> openRomPicker());
+        editTouchButton.setOnClickListener(v ->
+                startActivity(new Intent(this, LayoutEditorActivity.class)));
+        playButton.setOnClickListener(v -> attemptPlay());
 
         ensureDataDir();
+        updatePlayEnabled();
+    }
 
-        if (romExists()) {
-            File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
-            int hashStatus = checkRomHash(target);
-            if (hashStatus == 0) {
-                startGame();
-            } else if (hashStatus == 1) {
-                showV10WarningDialog(target);
-            } else {
-                showHashMismatchDialog(target);
-            }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updatePlayEnabled();
+    }
+
+    private void updatePlayEnabled() {
+        boolean rom = romExists();
+        playButton.setEnabled(rom);
+        infoText.setText(rom ? "Perfect Dark" :
+                "ROM not found. Select your Perfect Dark NTSC (z64) ROM to proceed.\n" +
+                "It will be copied to Android/data/com.perfectdark.port/files/data as " +
+                ROM_FILE_NAME + ".");
+    }
+
+    private void attemptPlay() {
+        if (!romExists()) return;
+        File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
+        int hashStatus = checkRomHash(target);
+        if (hashStatus == 0) {
+            startGame();
+        } else if (hashStatus == 1) {
+            showV10WarningDialog(target);
         } else {
-            showMissingRomUi();
+            showHashMismatchDialog(target);
         }
     }
 
@@ -83,8 +105,7 @@ public class LauncherActivity extends AppCompatActivity {
     }
 
     private void showMissingRomUi() {
-        missingRomView.setVisibility(View.VISIBLE);
-        infoText.setText("ROM not found. Select your Perfect Dark NTSC (z64) ROM to proceed.\nIt will be copied to Android/data/com.perfectdark.port/files/data as " + ROM_FILE_NAME + ".");
+        updatePlayEnabled();
     }
 
     private void openRomPicker() {

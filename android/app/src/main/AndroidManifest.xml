@@ -42,6 +42,14 @@
             android:screenOrientation="landscape"
             android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:theme="@style/Theme.PerfectDark.Fullscreen"/>
+
+        <!-- LayoutEditorActivity: fullscreen touch-pad layout editor -->
+        <activity
+            android:name=".LayoutEditorActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:theme="@style/Theme.PerfectDark.Fullscreen"/>
     </application>
 
 </manifest>
