@@ -23,7 +23,6 @@ import androidx.appcompat.app.AppCompatActivity;
 public class LayoutEditorActivity extends AppCompatActivity {
 
     private TouchOverlayView overlay;
-    private boolean resizing = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,14 +73,8 @@ public class LayoutEditorActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         bar.addView(title, titleLp);
 
-        final Button resize = new Button(ctx);
-        resize.setText("RESIZE OFF");
-        resize.setOnClickListener(v -> {
-            resizing = !resizing;
-            overlay.setResizeMode(resizing);
-            resize.setText(resizing ? "RESIZE ON" : "RESIZE OFF");
-        });
-        bar.addView(resize);
+        // Per-button resize is done by tapping a button inside the overlay,
+        // so no global RESIZE toggle is needed here.
 
         Button reset = new Button(ctx);
         reset.setText("RESET");

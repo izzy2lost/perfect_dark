@@ -31,11 +31,16 @@ public class TouchOverlayView extends View {
     private final SparseArray<String> pointerToElement = new SparseArray<>();
     private TouchLayout layout;
     private boolean editMode = false;
-    private boolean resizeMode = false;
     private boolean internalHudVisible = true;
     // When true, the edit HUD shrinks to a single pill in the top-right so
     // the user can place / drag buttons that live under the full bar.
     private boolean hudCollapsed = false;
+    // Currently selected button in edit mode. Drives the per-button resize
+    // bar. Null means no button is selected.
+    private @Nullable String selectedButtonId = null;
+    private static final float BUTTON_SIZE_MIN = 0.03f;
+    private static final float BUTTON_SIZE_MAX = 0.15f;
+    private static final float BUTTON_SIZE_STEP = 0.005f;
 
     // Snapshot taken when entering edit mode; restored if the user cancels.
     private @Nullable TouchLayout editSnapshot;
@@ -77,6 +82,10 @@ public class TouchOverlayView extends View {
     private final RectF btnSensYUpRect = new RectF();
     private final RectF sensYLabelRect = new RectF();
     private final RectF btnCollapseRect = new RectF();
+    // Per-selected-button resize bar rects.
+    private final RectF btnSizeDownRect = new RectF();
+    private final RectF btnSizeLabelRect = new RectF();
+    private final RectF btnSizeUpRect = new RectF();
 
     // ---- Paints.
     private final Paint paintBase = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -157,17 +166,12 @@ public class TouchOverlayView extends View {
         } else {
             editSnapshot = null;
         }
+        selectedButtonId = null;
         resetInputState();
         invalidate();
     }
 
-    public void setResizeMode(boolean enabled) {
-        resizeMode = enabled;
-        invalidate();
-    }
-
     public boolean isEditMode() { return editMode; }
-    public boolean isResizeMode() { return resizeMode; }
 
     /**
      * Disable the overlay's own HUD (EDIT pill + SAVE/RESET/RESIZE/CANCEL bar).
@@ -403,8 +407,32 @@ public class TouchOverlayView extends View {
     /** Returns true if the down-event was consumed by a HUD control. */
     private boolean handleHudDown(float x, float y) {
         if (!internalHudVisible) return false;
-        // Edit mode: Save / Reset / Resize / Cancel strip.
         if (editMode) {
+            // Per-button resize bar: takes priority over the main HUD so the
+            // user can press - / + even if it sits under a pill. It is only
+            // drawn when a button is selected.
+            if (selectedButtonId != null) {
+                TouchLayout.Element sel = findById(selectedButtonId);
+                if (sel != null) {
+                    if (btnSizeDownRect.contains(x, y)) {
+                        sel.radius = Math.max(BUTTON_SIZE_MIN,
+                                sel.radius - BUTTON_SIZE_STEP);
+                        invalidate();
+                        return true;
+                    }
+                    if (btnSizeUpRect.contains(x, y)) {
+                        sel.radius = Math.min(BUTTON_SIZE_MAX,
+                                sel.radius + BUTTON_SIZE_STEP);
+                        invalidate();
+                        return true;
+                    }
+                    if (btnSizeLabelRect.contains(x, y)) {
+                        // Consume taps on the label so they don't fall through
+                        // to the button underneath.
+                        return true;
+                    }
+                }
+            }
             // Collapse/expand toggle always takes priority so the user can
             // reveal the rest of the screen underneath.
             if (btnCollapseRect.contains(x, y)) {
@@ -437,11 +465,6 @@ public class TouchOverlayView extends View {
                     dst.radius = s.radius;
                     dst.hw = s.hw; dst.hh = s.hh;
                 }
-                invalidate();
-                return true;
-            }
-            if (btnResizeRect.contains(x, y)) {
-                resizeMode = !resizeMode;
                 invalidate();
                 return true;
             }
@@ -480,15 +503,23 @@ public class TouchOverlayView extends View {
     private boolean onEditTouch(MotionEvent ev) {
         int action = ev.getActionMasked();
         int idx = ev.getActionIndex();
-        int w = getWidth(), h = getHeight(), m = minExtent();
+        int w = getWidth(), h = getHeight();
         float x = ev.getX(idx), y = ev.getY(idx);
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
-                TouchLayout.Element el = hitTest(x, y);
-                if (el == null) return true;
+                TouchLayout.Element el = hitTestEditable(x, y);
+                if (el == null) {
+                    // Tap outside any editable element clears selection.
+                    if (selectedButtonId != null) {
+                        selectedButtonId = null;
+                        invalidate();
+                    }
+                    return true;
+                }
                 draggedId = el.id;
+                selectedButtonId = el.id;
                 dragOffsetX = x - px(el.cx, w);
                 dragOffsetY = y - px(el.cy, h);
                 break;
@@ -497,25 +528,8 @@ public class TouchOverlayView extends View {
                 if (draggedId == null) return true;
                 TouchLayout.Element el = findById(draggedId);
                 if (el == null) return true;
-                if (resizeMode) {
-                    float dxn = Math.abs(x - px(el.cx, w)) / w;
-                    float dyn = Math.abs(y - px(el.cy, h)) / h;
-                    if (el.kind == TouchLayout.Kind.LOOK_PAD
-                            || el.kind == TouchLayout.Kind.MOVE_PAD) {
-                        el.hw = Math.max(0.05f, Math.min(0.48f, dxn));
-                        el.hh = Math.max(0.05f, Math.min(0.48f, dyn));
-                    } else {
-                        float dxM = (x - px(el.cx, w)) / m;
-                        float dyM = (y - px(el.cy, h)) / m;
-                        float newR = (float) Math.sqrt(dxM * dxM + dyM * dyM);
-                        el.radius = Math.max(0.03f, Math.min(0.25f, newR));
-                        el.hw = el.radius;
-                        el.hh = el.radius;
-                    }
-                } else {
-                    el.cx = Math.max(0.02f, Math.min(0.98f, (x - dragOffsetX) / w));
-                    el.cy = Math.max(0.02f, Math.min(0.98f, (y - dragOffsetY) / h));
-                }
+                el.cx = Math.max(0.02f, Math.min(0.98f, (x - dragOffsetX) / w));
+                el.cy = Math.max(0.02f, Math.min(0.98f, (y - dragOffsetY) / h));
                 break;
             }
             case MotionEvent.ACTION_UP:
@@ -526,6 +540,22 @@ public class TouchOverlayView extends View {
         }
         invalidate();
         return true;
+    }
+
+    /** Same as hitTest but skips the pads so they cannot be dragged. */
+    @Nullable
+    private TouchLayout.Element hitTestEditable(float x, float y) {
+        int w = getWidth(), h = getHeight(), m = minExtent();
+        for (int i = layout.elements.size() - 1; i >= 0; --i) {
+            TouchLayout.Element el = layout.elements.get(i);
+            if (el.kind == TouchLayout.Kind.LOOK_PAD
+                    || el.kind == TouchLayout.Kind.MOVE_PAD) continue;
+            float cx = px(el.cx, w), cy = px(el.cy, h);
+            float dx = x - cx, dy = y - cy;
+            float r = el.radius * m;
+            if (dx * dx + dy * dy <= r * r) return el;
+        }
+        return null;
     }
 
     // ---------------- Rendering ----------------
@@ -548,29 +578,14 @@ public class TouchOverlayView extends View {
                     canvas.drawCircle(cx + sx * r * 0.5f, cy + sy * r * 0.5f, r * 0.45f, paintKnob);
                     break;
                 }
-                case LOOK_PAD: {
-                    float rx = el.hw * w, ry = el.hh * h;
-                    RectF rect = new RectF(cx - rx, cy - ry, cx + rx, cy + ry);
-                    canvas.drawRect(rect, paintLookFill);
-                    canvas.drawRect(rect, paintLookBorder);
-                    // Label centered so it never collides with the buttons at
-                    // the top or bottom of the screen, regardless of pad size.
-                    if (el.label != null && !el.label.isEmpty()) {
-                        canvas.drawText(el.label, cx,
-                                cy + paintLabel.getTextSize() * 0.35f, paintLabel);
-                    }
+                case LOOK_PAD:
+                    // Invisible by design — it is simply the right half of
+                    // the screen. Nothing to draw.
                     break;
-                }
-                case MOVE_PAD: {
-                    float rx = el.hw * w, ry = el.hh * h;
-                    RectF rect = new RectF(cx - rx, cy - ry, cx + rx, cy + ry);
-                    canvas.drawRect(rect, paintLookFill);
-                    canvas.drawRect(rect, paintLookBorder);
-                    if (el.label != null && !el.label.isEmpty()) {
-                        canvas.drawText(el.label, cx,
-                                cy + paintLabel.getTextSize() * 0.35f, paintLabel);
-                    }
-                    // When active, draw the floating stick at the anchor point.
+                case MOVE_PAD:
+                    // Same deal, but show the floating stick at the anchor
+                    // while the user is actually touching the pad so there
+                    // is clear feedback for direction + deflection.
                     if (movePointer != -1) {
                         canvas.drawCircle(moveAnchorX, moveAnchorY, moveMaxRadiusPx, paintBase);
                         canvas.drawCircle(
@@ -579,7 +594,6 @@ public class TouchOverlayView extends View {
                                 moveMaxRadiusPx * 0.45f, paintKnob);
                     }
                     break;
-                }
                 case BUTTON: {
                     float r = el.radius * m;
                     Paint p = (pressedButtons & el.mask) != 0 ? paintBtnActive : paintBtnIdle;
@@ -591,15 +605,11 @@ public class TouchOverlayView extends View {
                     break;
                 }
             }
-            if (editMode) {
-                if (el.kind == TouchLayout.Kind.LOOK_PAD
-                        || el.kind == TouchLayout.Kind.MOVE_PAD) {
-                    float rx = el.hw * w, ry = el.hh * h;
-                    canvas.drawRect(cx - rx, cy - ry, cx + rx, cy + ry, paintEditBorder);
-                } else {
-                    float r = el.radius * m;
-                    canvas.drawCircle(cx, cy, r, paintEditBorder);
-                }
+            // Pads are not editable, so only show the orange edit outline
+            // on buttons.
+            if (editMode && el.kind == TouchLayout.Kind.BUTTON) {
+                float r = el.radius * m;
+                canvas.drawCircle(cx, cy, r, paintEditBorder);
             }
         }
 
@@ -632,6 +642,7 @@ public class TouchOverlayView extends View {
                 btnSensYDownRect.setEmpty(); btnSensYUpRect.setEmpty();
                 sensYLabelRect.setEmpty();
                 editPillRect.setEmpty();
+                drawButtonResizeBar(canvas, w, h, m);
                 return;
             }
 
@@ -650,11 +661,11 @@ public class TouchOverlayView extends View {
 
             btnSaveRect.set(x, r1y0, x + pillW, r1y1);
             x += pillW + gap;
-            btnResizeRect.set(x, r1y0, x + pillW * 1.2f, r1y1);
-            x += pillW * 1.2f + gap;
             btnResetRect.set(x, r1y0, x + pillW, r1y1);
             x += pillW + gap;
             btnCancelRect.set(x, r1y0, x + pillW, r1y1);
+            // RESIZE pill removed — per-button resize handles replaced it.
+            btnResizeRect.setEmpty();
 
             // --- Row 2 ---
             float r2y0 = r1y1 + rowGapY;
@@ -675,9 +686,6 @@ public class TouchOverlayView extends View {
             btnSensYUpRect.set(x, r2y0, x + squarePillW, r2y1);
 
             drawPill(canvas, btnSaveRect,  0xFF3a8a3a, "SAVE");
-            drawPill(canvas, btnResizeRect,
-                    resizeMode ? 0xFFd18f1f : 0xFF444444,
-                    resizeMode ? "RESIZE: ON" : "RESIZE: OFF");
             drawPill(canvas, btnResetRect, 0xFF444444, "RESET");
             drawPill(canvas, btnCancelRect, 0xFF8a3a3a, "CANCEL");
 
@@ -696,6 +704,8 @@ public class TouchOverlayView extends View {
 
             // Disable the live-edit pill while editing to avoid visual clutter.
             editPillRect.setEmpty();
+
+            drawButtonResizeBar(canvas, w, h, m);
         } else {
             // Floating "EDIT" pill in the top-right corner.
             float x0 = w - margin - pillW;
@@ -703,6 +713,56 @@ public class TouchOverlayView extends View {
             editPillRect.set(x0, y0, x0 + pillW, y0 + pillH);
             drawPill(canvas, editPillRect, 0xAA202028, "EDIT");
         }
+    }
+
+    /**
+     * Resize bar for the currently selected button: "[ - ] [ r=0.055 ] [ + ]".
+     * Positioned just below the button, or just above if that would run
+     * off-screen.
+     */
+    private void drawButtonResizeBar(Canvas canvas, int w, int h, int m) {
+        if (selectedButtonId == null) {
+            btnSizeDownRect.setEmpty();
+            btnSizeLabelRect.setEmpty();
+            btnSizeUpRect.setEmpty();
+            return;
+        }
+        TouchLayout.Element el = findById(selectedButtonId);
+        if (el == null || el.kind != TouchLayout.Kind.BUTTON) {
+            btnSizeDownRect.setEmpty();
+            btnSizeLabelRect.setEmpty();
+            btnSizeUpRect.setEmpty();
+            return;
+        }
+        float dp = m / 400f;
+        float pillH = 44 * dp;
+        float squareW = pillH;
+        float labelW = 110 * dp;
+        float gap = 6 * dp;
+        float barW = squareW * 2 + labelW + gap * 2;
+
+        float cx = el.cx * w, cy = el.cy * h, r = el.radius * m;
+
+        float x0 = cx - barW / 2f;
+        if (x0 < 4 * dp) x0 = 4 * dp;
+        if (x0 + barW > w - 4 * dp) x0 = w - 4 * dp - barW;
+
+        float y0 = cy + r + gap * 1.4f;
+        if (y0 + pillH > h - 4 * dp) {
+            y0 = cy - r - gap * 1.4f - pillH;
+        }
+
+        float x = x0;
+        btnSizeDownRect.set(x, y0, x + squareW, y0 + pillH);
+        x += squareW + gap;
+        btnSizeLabelRect.set(x, y0, x + labelW, y0 + pillH);
+        x += labelW + gap;
+        btnSizeUpRect.set(x, y0, x + squareW, y0 + pillH);
+
+        drawPill(canvas, btnSizeDownRect, 0xDD2a2a32, "−");
+        drawPill(canvas, btnSizeLabelRect, 0xDD111116,
+                String.format("r %.3f", el.radius));
+        drawPill(canvas, btnSizeUpRect, 0xDD2a2a32, "+");
     }
 
     private void drawPill(Canvas canvas, RectF rect, int argb, String label) {
