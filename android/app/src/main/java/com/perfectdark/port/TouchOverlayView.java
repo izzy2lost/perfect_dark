@@ -50,10 +50,12 @@ public class TouchOverlayView extends View {
     // ---- Look pad (CoD / Quake-style: finger delta == mouse delta).
     private int lookPointer = -1;
     private float lookLastX, lookLastY;
-    // Scales phone pixels to "mouse pixels" before feeding inputMouseGet*.
-    // ~0.4 means a 25 mm thumb drag on a modern phone ≈ 90° camera rotation
-    // at the default MouseSens. Tune via pd.ini if needed.
-    private static final float LOOK_SENS_PX = 0.4f;
+    // How many "mouse pixels" each phone pixel produces when dragging the
+    // look pad. Lives on TouchLayout so it is persisted with the rest of
+    // the config and tunable via the SENS-/SENS+ pills in the edit HUD.
+    private static final float LOOK_SENS_MIN = 0.05f;
+    private static final float LOOK_SENS_MAX = 2.0f;
+    private static final float LOOK_SENS_STEP = 0.05f;
 
     // ---- Edit drag state.
     private String draggedId = null;
@@ -65,6 +67,9 @@ public class TouchOverlayView extends View {
     private final RectF btnResetRect = new RectF();
     private final RectF btnResizeRect = new RectF();
     private final RectF btnCancelRect = new RectF();
+    private final RectF btnSensDownRect = new RectF();
+    private final RectF btnSensUpRect = new RectF();
+    private final RectF sensLabelRect = new RectF();
 
     // ---- Paints.
     private final Paint paintBase = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -291,8 +296,9 @@ public class TouchOverlayView extends View {
 
     private void handleMove(int pid, float x, float y) {
         if (pid == lookPointer) {
-            float dx = (x - lookLastX) * LOOK_SENS_PX;
-            float dy = (y - lookLastY) * LOOK_SENS_PX;
+            float s = layout.lookSens;
+            float dx = (x - lookLastX) * s;
+            float dy = (y - lookLastY) * s;
             lookLastX = x; lookLastY = y;
             int idx = Math.round(dx), idy = Math.round(dy);
             if (idx != 0 || idy != 0) {
@@ -416,6 +422,16 @@ public class TouchOverlayView extends View {
             }
             if (btnResizeRect.contains(x, y)) {
                 resizeMode = !resizeMode;
+                invalidate();
+                return true;
+            }
+            if (btnSensDownRect.contains(x, y)) {
+                layout.lookSens = Math.max(LOOK_SENS_MIN, layout.lookSens - LOOK_SENS_STEP);
+                invalidate();
+                return true;
+            }
+            if (btnSensUpRect.contains(x, y)) {
+                layout.lookSens = Math.min(LOOK_SENS_MAX, layout.lookSens + LOOK_SENS_STEP);
                 invalidate();
                 return true;
             }
@@ -566,13 +582,14 @@ public class TouchOverlayView extends View {
         float margin = 12 * dp;
 
         if (editMode) {
-            // Top bar with Save / Reset / Resize / Cancel.
+            // Top bar with Save / Resize / Reset / Sens / Cancel.
             float barH = pillH + margin * 1.5f;
             canvas.drawRect(0, 0, w, barH, paintHudBar);
 
             float btnY0 = margin * 0.3f;
             float btnY1 = btnY0 + pillH;
             float gap = 8 * dp;
+            float squarePillW = pillH; // small square pill for +/-
             float x = margin;
 
             btnSaveRect.set(x, btnY0, x + pillW, btnY1);
@@ -580,7 +597,15 @@ public class TouchOverlayView extends View {
             btnResizeRect.set(x, btnY0, x + pillW * 1.2f, btnY1);
             x += pillW * 1.2f + gap;
             btnResetRect.set(x, btnY0, x + pillW, btnY1);
-            x += pillW + gap;
+            x += pillW + gap * 2f;
+
+            btnSensDownRect.set(x, btnY0, x + squarePillW, btnY1);
+            x += squarePillW + gap * 0.5f;
+            sensLabelRect.set(x, btnY0, x + pillW * 1.4f, btnY1);
+            x += pillW * 1.4f + gap * 0.5f;
+            btnSensUpRect.set(x, btnY0, x + squarePillW, btnY1);
+            x += squarePillW + gap * 2f;
+
             btnCancelRect.set(x, btnY0, x + pillW, btnY1);
 
             drawPill(canvas, btnSaveRect,  0xFF3a8a3a, "SAVE");
@@ -588,6 +613,10 @@ public class TouchOverlayView extends View {
                     resizeMode ? 0xFFd18f1f : 0xFF444444,
                     resizeMode ? "RESIZE: ON" : "RESIZE: OFF");
             drawPill(canvas, btnResetRect, 0xFF444444, "RESET");
+            drawPill(canvas, btnSensDownRect, 0xFF444444, "-");
+            drawPill(canvas, sensLabelRect, 0xFF222228,
+                    String.format("SENS %.2f", layout.lookSens));
+            drawPill(canvas, btnSensUpRect, 0xFF444444, "+");
             drawPill(canvas, btnCancelRect, 0xFF8a3a3a, "CANCEL");
 
             // Disable the live-edit pill while editing to avoid visual clutter.

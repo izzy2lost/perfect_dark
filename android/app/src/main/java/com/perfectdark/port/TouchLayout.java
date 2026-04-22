@@ -66,37 +66,40 @@ public class TouchLayout {
 
     public final List<Element> elements = new ArrayList<>();
 
+    /** Pixel-to-mouse-delta multiplier for the look pad. Persistent. */
+    public float lookSens = 0.4f;
+
     public static TouchLayout defaults() {
         TouchLayout l = new TouchLayout();
-        // Left half of the screen is a drag-to-look pad (like CoD Mobile).
-        // The user still gets to touch button areas on top — buttons are
-        // hit-tested first thanks to their later position in the list.
-        l.elements.add(Element.rect("lookpad", Kind.LOOK_PAD, "LOOK",
-                0.27f, 0.52f, 0.25f, 0.42f));
 
-        // Right half is a floating-stick move pad. Touch anywhere inside the
-        // zone to anchor the stick center at your finger; drag from there.
-        // `radius` is the max deflection distance (normalized to min extent).
+        // Left half is the floating-stick move pad (CoD Mobile style): touch
+        // anywhere inside to anchor the stick center at your finger, then
+        // drag from there. `radius` is the max deflection distance.
         Element movepad = Element.rect("movepad", Kind.MOVE_PAD, "MOVE",
-                0.73f, 0.52f, 0.25f, 0.42f);
+                0.27f, 0.52f, 0.25f, 0.42f);
         movepad.radius = 0.09f;
         l.elements.add(movepad);
 
-        // Primary action cluster floats over the right-side move pad.
-        l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.92f, 0.78f, 0.070f));
-        l.elements.add(new Element("aim",    Kind.BUTTON, BTN_R,      "AIM",  0.93f, 0.45f, 0.055f));
-        l.elements.add(new Element("use",    Kind.BUTTON, BTN_A,      "USE",  0.93f, 0.20f, 0.050f));
-        l.elements.add(new Element("reload", Kind.BUTTON, BTN_X,      "RLD",  0.83f, 0.20f, 0.050f));
-        l.elements.add(new Element("altfire",Kind.BUTTON, BTN_L,      "ALT",  0.83f, 0.45f, 0.045f));
+        // Right half is a drag-to-look pad. Each drag injects an equal
+        // mouse delta and stops when the finger stops (not a stick).
+        l.elements.add(Element.rect("lookpad", Kind.LOOK_PAD, "LOOK",
+                0.73f, 0.52f, 0.25f, 0.42f));
 
-        // Weapon + radial cluster over the left-side look pad.
+        // Shooting cluster over the right-side look pad (right thumb / index).
+        l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.92f, 0.78f, 0.070f));
+        l.elements.add(new Element("aim",    Kind.BUTTON, BTN_R,      "AIM",  0.92f, 0.45f, 0.055f));
+        l.elements.add(new Element("use",    Kind.BUTTON, BTN_A,      "USE",  0.82f, 0.55f, 0.050f));
+        l.elements.add(new Element("reload", Kind.BUTTON, BTN_X,      "RLD",  0.82f, 0.22f, 0.050f));
+        l.elements.add(new Element("altfire",Kind.BUTTON, BTN_L,      "ALT",  0.93f, 0.22f, 0.045f));
+
+        // Weapon + movement helpers over the left-side move pad.
         l.elements.add(new Element("wprev",  Kind.BUTTON, BTN_DL,     "<",    0.06f, 0.30f, 0.045f));
-        l.elements.add(new Element("wnext",  Kind.BUTTON, BTN_Y,      ">",    0.17f, 0.18f, 0.045f));
+        l.elements.add(new Element("wnext",  Kind.BUTTON, BTN_Y,      ">",    0.17f, 0.30f, 0.045f));
         l.elements.add(new Element("radial", Kind.BUTTON, BTN_DD,     "WPN",  0.08f, 0.18f, 0.045f));
         l.elements.add(new Element("crouch", Kind.BUTTON, BTN_CROUCH, "CRC",  0.07f, 0.85f, 0.045f));
 
         // Menu + cancel at the top.
-        l.elements.add(new Element("start",  Kind.BUTTON, BTN_START,  "STRT", 0.50f, 0.06f, 0.045f));
+        l.elements.add(new Element("start",  Kind.BUTTON, BTN_START,  "STRT", 0.48f, 0.06f, 0.045f));
         l.elements.add(new Element("cancel", Kind.BUTTON, BTN_B,      "BACK", 0.55f, 0.06f, 0.045f));
         return l;
     }
@@ -110,6 +113,7 @@ public class TouchLayout {
             e.putFloat(el.id + ".hw", el.hw);
             e.putFloat(el.id + ".hh", el.hh);
         }
+        e.putFloat("_lookSens", lookSens);
         e.apply();
     }
 
@@ -123,6 +127,7 @@ public class TouchLayout {
             el.hw     = p.getFloat(el.id + ".hw", el.hw);
             el.hh     = p.getFloat(el.id + ".hh", el.hh);
         }
+        l.lookSens = p.getFloat("_lookSens", l.lookSens);
         return l;
     }
 
@@ -133,19 +138,22 @@ public class TouchLayout {
     /** Deep copy, used to back up before entering live-edit mode. */
     public TouchLayout copy() {
         TouchLayout out = new TouchLayout();
+        out.lookSens = lookSens;
         for (Element e : elements) {
-            Element c = (e.kind == Kind.LOOK_PAD)
+            Element c = (e.kind == Kind.LOOK_PAD || e.kind == Kind.MOVE_PAD)
                     ? Element.rect(e.id, e.kind, e.label, e.cx, e.cy, e.hw, e.hh)
                     : new Element(e.id, e.kind, e.mask, e.label, e.cx, e.cy, e.radius);
             c.hw = e.hw;
             c.hh = e.hh;
+            c.radius = e.radius;
             out.elements.add(c);
         }
         return out;
     }
 
-    /** Copies positions/sizes from `src` into this layout in place. */
+    /** Copies positions/sizes (and sensitivity) from `src` into this layout in place. */
     public void assignFrom(TouchLayout src) {
+        lookSens = src.lookSens;
         for (int i = 0; i < elements.size() && i < src.elements.size(); ++i) {
             Element dst = elements.get(i);
             Element s = src.elements.get(i);
