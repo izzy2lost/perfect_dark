@@ -1,0 +1,21 @@
+# ninja log v5
+1	94	1776888561183606414	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-mkdir	3459652112f253e1
+1	94	1776888561183606414	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-mkdir	3459652112f253e1
+94	35682	1776888596771148810	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-download	4115d7b86241c42
+94	35682	1776888596771148810	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-download	4115d7b86241c42
+35682	35768	0	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-update	3e12d1351cb83f5a
+35682	35768	0	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-update	3e12d1351cb83f5a
+35768	35799	1776888596888344388	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-patch	f236b080d98796b3
+35768	35799	1776888596888344388	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-patch	f236b080d98796b3
+35799	35829	1776888596918694520	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-configure	99ffeae056e08859
+35799	35829	1776888596918694520	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-configure	99ffeae056e08859
+35829	35856	1776888596946544158	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-build	82b4d9d133eafe71
+35829	35856	1776888596946544158	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-build	82b4d9d133eafe71
+35856	35885	1776888596974629670	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-install	2e610f5fefac3a69
+35856	35885	1776888596974629670	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-install	2e610f5fefac3a69
+35885	35912	1776888597002380725	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-test	40d8753adb3059bf
+35885	35912	1776888597002380725	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-test	40d8753adb3059bf
+35913	35951	1776888597040968211	CMakeFiles/sdl2-populate-complete	3d39c05dcf1bf869
+35913	35951	1776888597040968211	sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-done	3d39c05dcf1bf869
+35913	35951	1776888597040968211	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/CMakeFiles/sdl2-populate-complete	3d39c05dcf1bf869
+35913	35951	1776888597040968211	/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-subbuild/sdl2-populate-prefix/src/sdl2-populate-stamp/sdl2-populate-done	3d39c05dcf1bf869

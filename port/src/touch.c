@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <PR/ultratypes.h>
+#include <PR/os_thread.h>
 #include <PR/os_cont.h>
 #include "platform.h"
 #include "touch.h"

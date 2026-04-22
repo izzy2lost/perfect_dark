@@ -2,6 +2,7 @@
 #define _IN_TOUCH_H
 
 #include <PR/ultratypes.h>
+#include <PR/os_thread.h>
 #include <PR/os_cont.h>
 
 // Called by inputReadController() once per poll so the virtual pad can

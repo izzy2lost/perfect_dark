@@ -1,0 +1,87 @@
+{
+  "buildFiles": [
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/CMakeLists.txt",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a/_deps/sdl2-src/CMakeLists.txt",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/AssetUtils.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/FindSDL2.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/TargetArch.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/android.cmake"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/miguel_garcia/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/miguel_garcia/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "SDL2::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "SDL2",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/armeabi-v7a/libSDL2.so",
+      "runtimeFiles": []
+    },
+    "SDL2-static::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "SDL2-static",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a/_deps/sdl2-build/libSDL2.a"
+    },
+    "SDL2_test::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "SDL2_test",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a/_deps/sdl2-build/libSDL2_test.a"
+    },
+    "SDL2main::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "SDL2main",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/armeabi-v7a/_deps/sdl2-build/libSDL2main.a"
+    },
+    "pd::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "pd",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/armeabi-v7a/libpd.so",
+      "runtimeFiles": [
+        "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/armeabi-v7a/libSDL2.so"
+      ]
+    },
+    "pd_headers::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "pd_headers"
+    },
+    "sdl_headers_copy::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "sdl_headers_copy"
+    },
+    "uninstall::@45bd952f1071c035638d": {
+      "toolchain": "toolchain",
+      "abi": "armeabi-v7a",
+      "artifactName": "uninstall"
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/Users/miguel_garcia/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/Users/miguel_garcia/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [
+    "c"
+  ],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

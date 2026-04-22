@@ -1,0 +1,73 @@
+{
+  "buildFiles": [
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/CMakeLists.txt",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a/_deps/sdl2-src/CMakeLists.txt",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/AssetUtils.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/FindSDL2.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/TargetArch.cmake",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/android.cmake"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/miguel_garcia/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/miguel_garcia/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "sdl_headers_copy::@45bd952f1071c035638d": {
+      "artifactName": "sdl_headers_copy",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
+    },
+    "pd::@6890427a1f51a3e7e1df": {
+      "artifactName": "pd",
+      "abi": "arm64-v8a",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/arm64-v8a/libpd.so",
+      "runtimeFiles": [
+        "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/arm64-v8a/libSDL2.so"
+      ]
+    },
+    "uninstall::@45bd952f1071c035638d": {
+      "artifactName": "uninstall",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
+    },
+    "SDL2main::@45bd952f1071c035638d": {
+      "artifactName": "SDL2main",
+      "abi": "arm64-v8a",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a/_deps/sdl2-build/libSDL2main.a",
+      "runtimeFiles": []
+    },
+    "pd_headers::@6890427a1f51a3e7e1df": {
+      "artifactName": "pd_headers",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
+    },
+    "SDL2::@45bd952f1071c035638d": {
+      "artifactName": "SDL2",
+      "abi": "arm64-v8a",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/build/intermediates/cxx/Debug/5t1f1ol3/obj/arm64-v8a/libSDL2.so",
+      "runtimeFiles": []
+    },
+    "SDL2-static::@45bd952f1071c035638d": {
+      "artifactName": "SDL2-static",
+      "abi": "arm64-v8a",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a/_deps/sdl2-build/libSDL2.a",
+      "runtimeFiles": []
+    },
+    "SDL2_test::@45bd952f1071c035638d": {
+      "artifactName": "SDL2_test",
+      "abi": "arm64-v8a",
+      "output": "/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/arm64-v8a/_deps/sdl2-build/libSDL2_test.a",
+      "runtimeFiles": []
+    }
+  }
+}
