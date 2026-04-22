@@ -66,24 +66,25 @@ public class TouchLayout {
 
     public final List<Element> elements = new ArrayList<>();
 
-    /** Pixel-to-mouse-delta multiplier for the look pad. Persistent. */
-    public float lookSens = 0.4f;
+    /** Pixel-to-mouse-delta multipliers for the look pad. Persistent, per-axis. */
+    public float lookSensX = 0.4f;
+    public float lookSensY = 0.4f;
 
     public static TouchLayout defaults() {
         TouchLayout l = new TouchLayout();
 
-        // Left half is the floating-stick move pad (CoD Mobile style): touch
-        // anywhere inside to anchor the stick center at your finger, then
-        // drag from there. `radius` is the max deflection distance.
+        // Left half is the floating-stick move pad (CoD Mobile style). Half
+        // width shrunk so it does not cross the screen midline with the look
+        // pad — touches in the overlap region would go to whichever was
+        // drawn last, which is confusing.
         Element movepad = Element.rect("movepad", Kind.MOVE_PAD, "MOVE",
-                0.27f, 0.52f, 0.25f, 0.42f);
+                0.25f, 0.52f, 0.23f, 0.42f);
         movepad.radius = 0.09f;
         l.elements.add(movepad);
 
-        // Right half is a drag-to-look pad. Each drag injects an equal
-        // mouse delta and stops when the finger stops (not a stick).
+        // Right half is a drag-to-look pad; also shrunk to avoid overlap.
         l.elements.add(Element.rect("lookpad", Kind.LOOK_PAD, "LOOK",
-                0.73f, 0.52f, 0.25f, 0.42f));
+                0.75f, 0.52f, 0.23f, 0.42f));
 
         // Shooting cluster over the right-side look pad (right thumb / index).
         l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.92f, 0.78f, 0.070f));
@@ -113,7 +114,8 @@ public class TouchLayout {
             e.putFloat(el.id + ".hw", el.hw);
             e.putFloat(el.id + ".hh", el.hh);
         }
-        e.putFloat("_lookSens", lookSens);
+        e.putFloat("_lookSensX", lookSensX);
+        e.putFloat("_lookSensY", lookSensY);
         e.apply();
     }
 
@@ -127,7 +129,11 @@ public class TouchLayout {
             el.hw     = p.getFloat(el.id + ".hw", el.hw);
             el.hh     = p.getFloat(el.id + ".hh", el.hh);
         }
-        l.lookSens = p.getFloat("_lookSens", l.lookSens);
+        // Legacy single-axis key is used as the fallback for both axes if
+        // present, so existing installs keep their previous sensitivity.
+        float legacy = p.getFloat("_lookSens", l.lookSensX);
+        l.lookSensX = p.getFloat("_lookSensX", legacy);
+        l.lookSensY = p.getFloat("_lookSensY", legacy);
         return l;
     }
 
@@ -138,7 +144,8 @@ public class TouchLayout {
     /** Deep copy, used to back up before entering live-edit mode. */
     public TouchLayout copy() {
         TouchLayout out = new TouchLayout();
-        out.lookSens = lookSens;
+        out.lookSensX = lookSensX;
+        out.lookSensY = lookSensY;
         for (Element e : elements) {
             Element c = (e.kind == Kind.LOOK_PAD || e.kind == Kind.MOVE_PAD)
                     ? Element.rect(e.id, e.kind, e.label, e.cx, e.cy, e.hw, e.hh)
@@ -153,7 +160,8 @@ public class TouchLayout {
 
     /** Copies positions/sizes (and sensitivity) from `src` into this layout in place. */
     public void assignFrom(TouchLayout src) {
-        lookSens = src.lookSens;
+        lookSensX = src.lookSensX;
+        lookSensY = src.lookSensY;
         for (int i = 0; i < elements.size() && i < src.elements.size(); ++i) {
             Element dst = elements.get(i);
             Element s = src.elements.get(i);

@@ -51,11 +51,11 @@ public class TouchOverlayView extends View {
     private int lookPointer = -1;
     private float lookLastX, lookLastY;
     // How many "mouse pixels" each phone pixel produces when dragging the
-    // look pad. Lives on TouchLayout so it is persisted with the rest of
-    // the config and tunable via the SENS-/SENS+ pills in the edit HUD.
+    // look pad, per axis. Lives on TouchLayout so it is persisted with the
+    // rest of the config and tunable via the sens pills in the edit HUD.
     private static final float LOOK_SENS_MIN = 0.05f;
-    private static final float LOOK_SENS_MAX = 2.0f;
-    private static final float LOOK_SENS_STEP = 0.05f;
+    private static final float LOOK_SENS_MAX = 5.0f;
+    private static final float LOOK_SENS_STEP = 0.1f;
 
     // ---- Edit drag state.
     private String draggedId = null;
@@ -67,9 +67,12 @@ public class TouchOverlayView extends View {
     private final RectF btnResetRect = new RectF();
     private final RectF btnResizeRect = new RectF();
     private final RectF btnCancelRect = new RectF();
-    private final RectF btnSensDownRect = new RectF();
-    private final RectF btnSensUpRect = new RectF();
-    private final RectF sensLabelRect = new RectF();
+    private final RectF btnSensXDownRect = new RectF();
+    private final RectF btnSensXUpRect = new RectF();
+    private final RectF sensXLabelRect = new RectF();
+    private final RectF btnSensYDownRect = new RectF();
+    private final RectF btnSensYUpRect = new RectF();
+    private final RectF sensYLabelRect = new RectF();
 
     // ---- Paints.
     private final Paint paintBase = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -296,9 +299,8 @@ public class TouchOverlayView extends View {
 
     private void handleMove(int pid, float x, float y) {
         if (pid == lookPointer) {
-            float s = layout.lookSens;
-            float dx = (x - lookLastX) * s;
-            float dy = (y - lookLastY) * s;
+            float dx = (x - lookLastX) * layout.lookSensX;
+            float dy = (y - lookLastY) * layout.lookSensY;
             lookLastX = x; lookLastY = y;
             int idx = Math.round(dx), idy = Math.round(dy);
             if (idx != 0 || idy != 0) {
@@ -427,13 +429,23 @@ public class TouchOverlayView extends View {
                 invalidate();
                 return true;
             }
-            if (btnSensDownRect.contains(x, y)) {
-                layout.lookSens = Math.max(LOOK_SENS_MIN, layout.lookSens - LOOK_SENS_STEP);
+            if (btnSensXDownRect.contains(x, y)) {
+                layout.lookSensX = Math.max(LOOK_SENS_MIN, layout.lookSensX - LOOK_SENS_STEP);
                 invalidate();
                 return true;
             }
-            if (btnSensUpRect.contains(x, y)) {
-                layout.lookSens = Math.min(LOOK_SENS_MAX, layout.lookSens + LOOK_SENS_STEP);
+            if (btnSensXUpRect.contains(x, y)) {
+                layout.lookSensX = Math.min(LOOK_SENS_MAX, layout.lookSensX + LOOK_SENS_STEP);
+                invalidate();
+                return true;
+            }
+            if (btnSensYDownRect.contains(x, y)) {
+                layout.lookSensY = Math.max(LOOK_SENS_MIN, layout.lookSensY - LOOK_SENS_STEP);
+                invalidate();
+                return true;
+            }
+            if (btnSensYUpRect.contains(x, y)) {
+                layout.lookSensY = Math.min(LOOK_SENS_MAX, layout.lookSensY + LOOK_SENS_STEP);
                 invalidate();
                 return true;
             }
@@ -584,42 +596,61 @@ public class TouchOverlayView extends View {
         float margin = 12 * dp;
 
         if (editMode) {
-            // Top bar with Save / Resize / Reset / Sens / Cancel.
-            float barH = pillH + margin * 1.5f;
+            // Two-row HUD. Row 1 = actions. Row 2 = per-axis sensitivity.
+            float rowGapY = 6 * dp;
+            float barH = pillH * 2 + rowGapY + margin * 1.6f;
             canvas.drawRect(0, 0, w, barH, paintHudBar);
 
-            float btnY0 = margin * 0.3f;
-            float btnY1 = btnY0 + pillH;
             float gap = 8 * dp;
             float squarePillW = pillH; // small square pill for +/-
+
+            // --- Row 1 ---
+            float r1y0 = margin * 0.3f;
+            float r1y1 = r1y0 + pillH;
             float x = margin;
 
-            btnSaveRect.set(x, btnY0, x + pillW, btnY1);
+            btnSaveRect.set(x, r1y0, x + pillW, r1y1);
             x += pillW + gap;
-            btnResizeRect.set(x, btnY0, x + pillW * 1.2f, btnY1);
+            btnResizeRect.set(x, r1y0, x + pillW * 1.2f, r1y1);
             x += pillW * 1.2f + gap;
-            btnResetRect.set(x, btnY0, x + pillW, btnY1);
-            x += pillW + gap * 2f;
+            btnResetRect.set(x, r1y0, x + pillW, r1y1);
+            x += pillW + gap;
+            btnCancelRect.set(x, r1y0, x + pillW, r1y1);
 
-            btnSensDownRect.set(x, btnY0, x + squarePillW, btnY1);
-            x += squarePillW + gap * 0.5f;
-            sensLabelRect.set(x, btnY0, x + pillW * 1.4f, btnY1);
-            x += pillW * 1.4f + gap * 0.5f;
-            btnSensUpRect.set(x, btnY0, x + squarePillW, btnY1);
+            // --- Row 2 ---
+            float r2y0 = r1y1 + rowGapY;
+            float r2y1 = r2y0 + pillH;
+            x = margin;
+
+            btnSensXDownRect.set(x, r2y0, x + squarePillW, r2y1);
+            x += squarePillW + gap * 0.3f;
+            sensXLabelRect.set(x, r2y0, x + pillW * 1.3f, r2y1);
+            x += pillW * 1.3f + gap * 0.3f;
+            btnSensXUpRect.set(x, r2y0, x + squarePillW, r2y1);
             x += squarePillW + gap * 2f;
 
-            btnCancelRect.set(x, btnY0, x + pillW, btnY1);
+            btnSensYDownRect.set(x, r2y0, x + squarePillW, r2y1);
+            x += squarePillW + gap * 0.3f;
+            sensYLabelRect.set(x, r2y0, x + pillW * 1.3f, r2y1);
+            x += pillW * 1.3f + gap * 0.3f;
+            btnSensYUpRect.set(x, r2y0, x + squarePillW, r2y1);
 
             drawPill(canvas, btnSaveRect,  0xFF3a8a3a, "SAVE");
             drawPill(canvas, btnResizeRect,
                     resizeMode ? 0xFFd18f1f : 0xFF444444,
                     resizeMode ? "RESIZE: ON" : "RESIZE: OFF");
             drawPill(canvas, btnResetRect, 0xFF444444, "RESET");
-            drawPill(canvas, btnSensDownRect, 0xFF444444, "-");
-            drawPill(canvas, sensLabelRect, 0xFF222228,
-                    String.format("SENS %.2f", layout.lookSens));
-            drawPill(canvas, btnSensUpRect, 0xFF444444, "+");
             drawPill(canvas, btnCancelRect, 0xFF8a3a3a, "CANCEL");
+
+            drawPill(canvas, btnSensXDownRect, 0xFF444444, "-");
+            drawPill(canvas, sensXLabelRect, 0xFF222228,
+                    String.format("X %.2f", layout.lookSensX));
+            drawPill(canvas, btnSensXUpRect, 0xFF444444, "+");
+
+            drawPill(canvas, btnSensYDownRect, 0xFF444444, "-");
+            drawPill(canvas, sensYLabelRect, 0xFF222228,
+                    String.format("Y %.2f", layout.lookSensY));
+            drawPill(canvas, btnSensYUpRect, 0xFF444444, "+");
 
             // Disable the live-edit pill while editing to avoid visual clutter.
             editPillRect.setEmpty();
