@@ -1,3 +1,0 @@
-repository='https://github.com/libsdl-org/SDL.git'
-module=''
-tag='origin'

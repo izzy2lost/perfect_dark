@@ -1,6 +1,0 @@
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/CMakeLists.txt
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/android/app/.cxx/Debug/5t1f1ol3/x86_64/_deps/sdl2-src/CMakeLists.txt
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/AssetUtils.cmake
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/FindSDL2.cmake
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/TargetArch.cmake
-/Users/miguel_garcia/Documents/Proyectos/pdandroid/cmake/android.cmake
