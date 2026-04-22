@@ -311,8 +311,10 @@ public class TouchOverlayView extends View {
             float dy = (y - moveAnchorY) / moveMaxRadiusPx;
             float len = (float) Math.sqrt(dx * dx + dy * dy);
             if (len > 1f) { dx /= len; dy /= len; }
-            leftStickX = dx;
-            leftStickY = dy;
+            // In PD's CONTROLMODE_PC (the port default), stick1 is camera and
+            // stick2 is walk/strafe, so the move pad must feed the right stick.
+            rightStickX = dx;
+            rightStickY = dy;
             return;
         }
         String id = pointerToElement.get(pid);
@@ -331,8 +333,8 @@ public class TouchOverlayView extends View {
         }
         if (pid == movePointer) {
             movePointer = -1;
-            leftStickX = 0;
-            leftStickY = 0;
+            rightStickX = 0;
+            rightStickY = 0;
             pointerToElement.remove(pid);
             return;
         }
@@ -542,8 +544,8 @@ public class TouchOverlayView extends View {
                     if (movePointer != -1) {
                         canvas.drawCircle(moveAnchorX, moveAnchorY, moveMaxRadiusPx, paintBase);
                         canvas.drawCircle(
-                                moveAnchorX + leftStickX * moveMaxRadiusPx * 0.5f,
-                                moveAnchorY + leftStickY * moveMaxRadiusPx * 0.5f,
+                                moveAnchorX + rightStickX * moveMaxRadiusPx * 0.5f,
+                                moveAnchorY + rightStickY * moveMaxRadiusPx * 0.5f,
                                 moveMaxRadiusPx * 0.45f, paintKnob);
                     }
                     break;
