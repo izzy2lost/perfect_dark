@@ -43,6 +43,7 @@ public class LayoutEditorActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
         overlay = new TouchOverlayView(this);
+        overlay.setInternalHudVisible(false);
         overlay.setEditMode(true);
         root.addView(overlay, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,

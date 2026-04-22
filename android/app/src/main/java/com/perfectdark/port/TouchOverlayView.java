@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -12,43 +14,69 @@ import android.view.View;
 import androidx.annotation.Nullable;
 
 /**
- * Draws the virtual sticks + buttons on top of the SDL surface and pumps
- * their state into native code (touch.c) via nativeSetState().
+ * Draws the virtual sticks / buttons / look-pad on top of the SDL surface and
+ * pumps their state into native code (touch.c) via nativeSetState().
  *
- * In edit mode, touches drag elements around or (with the mode toggle)
- * resize them; no native state is published.
+ * Features:
+ *  - LEFT_STICK / RIGHT_STICK: classic virtual analog sticks.
+ *  - LOOK_PAD: rectangular zone where any drag maps to right-stick velocity
+ *    (CoD Mobile / Fortnite-style camera control).
+ *  - BUTTON: circular on/off buttons that OR into the controller button mask.
+ *  - Edit mode: tap-drag an element to move, toggle RESIZE to stretch it
+ *    (LOOK_PAD stretches width & height independently, others change radius).
+ *  - Live-edit HUD: a small floating EDIT pill enters edit mode without
+ *    leaving the game; SAVE persists, CANCEL restores the previous layout.
  */
 public class TouchOverlayView extends View {
 
-    public interface EditListener {
-        void onLayoutChanged();
-    }
-
-    // Element id -> pointer id currently pressing it (-1 if not pressed).
     private final SparseArray<String> pointerToElement = new SparseArray<>();
     private TouchLayout layout;
     private boolean editMode = false;
     private boolean resizeMode = false;
-    private @Nullable EditListener editListener;
+    private boolean internalHudVisible = true;
 
-    // Per-stick state: which pointer owns it and last normalized axis value.
+    // Snapshot taken when entering edit mode; restored if the user cancels.
+    private @Nullable TouchLayout editSnapshot;
+
     private int leftPointer = -1, rightPointer = -1;
     private float leftStickX, leftStickY;
     private float rightStickX, rightStickY;
-
-    // Per-button press state, indexed by mask.
     private int pressedButtons = 0;
 
-    // Edit-mode drag tracking.
+    // ---- Look pad (CoD-style drag-to-look) state.
+    private int lookPointer = -1;
+    private float lookLastX, lookLastY;
+    private long lookLastMoveTime = 0;
+    private static final float LOOK_SENS = 3.2f;         // how fast a swipe maps to rstick
+    private static final float LOOK_DECAY = 0.35f;       // per-tick shrink when finger is still
+    private static final long  LOOK_TICK_MS = 16;
+    private static final long  LOOK_IDLE_MS = 18;        // stop producing delta if no move in this long
+    private boolean lookTickScheduled = false;
+    private final Runnable lookTicker = this::onLookTick;
+
+    // ---- Edit drag state.
     private String draggedId = null;
     private float dragOffsetX, dragOffsetY;
 
+    // ---- HUD action rectangles (recomputed each draw).
+    private final RectF editPillRect = new RectF();
+    private final RectF btnSaveRect = new RectF();
+    private final RectF btnResetRect = new RectF();
+    private final RectF btnResizeRect = new RectF();
+    private final RectF btnCancelRect = new RectF();
+
+    // ---- Paints.
     private final Paint paintBase = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintKnob = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintBtnIdle = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintBtnActive = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintLabel = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintEditBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintLookBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintLookFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintEditPillFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintEditPillText = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintHudBar = new Paint();
 
     public TouchOverlayView(Context c) {
         super(c);
@@ -83,35 +111,63 @@ public class TouchOverlayView extends View {
         paintEditBorder.setColor(Color.argb(220, 255, 160, 0));
         paintEditBorder.setStyle(Paint.Style.STROKE);
         paintEditBorder.setStrokeWidth(6);
+
+        paintLookBorder.setColor(Color.argb(110, 120, 200, 255));
+        paintLookBorder.setStyle(Paint.Style.STROKE);
+        paintLookBorder.setStrokeWidth(3);
+        paintLookFill.setColor(Color.argb(20, 120, 200, 255));
+        paintLookFill.setStyle(Paint.Style.FILL);
+
+        paintEditPillFill.setColor(Color.argb(180, 40, 40, 48));
+        paintEditPillFill.setStyle(Paint.Style.FILL);
+        paintEditPillText.setColor(Color.argb(255, 255, 200, 100));
+        paintEditPillText.setTextAlign(Paint.Align.CENTER);
+
+        paintHudBar.setColor(Color.argb(200, 20, 20, 28));
     }
 
+    public TouchLayout getLayout() { return layout; }
+
+    public void reloadLayout() {
+        layout = TouchLayout.load(getContext());
+        resetInputState();
+        invalidate();
+    }
+
+    /** Call to force edit mode externally (used by LayoutEditorActivity). */
     public void setEditMode(boolean enabled) {
-        this.editMode = enabled;
-        resetTouchState();
+        if (enabled == editMode) return;
+        editMode = enabled;
+        if (enabled) {
+            editSnapshot = layout.copy();
+        } else {
+            editSnapshot = null;
+        }
+        resetInputState();
         invalidate();
     }
 
     public void setResizeMode(boolean enabled) {
-        this.resizeMode = enabled;
-    }
-
-    public void setEditListener(@Nullable EditListener l) {
-        this.editListener = l;
-    }
-
-    public TouchLayout getLayout() {
-        return layout;
-    }
-
-    public void reloadLayout() {
-        layout = TouchLayout.load(getContext());
-        resetTouchState();
+        resizeMode = enabled;
         invalidate();
     }
 
-    private void resetTouchState() {
+    public boolean isEditMode() { return editMode; }
+    public boolean isResizeMode() { return resizeMode; }
+
+    /**
+     * Disable the overlay's own HUD (EDIT pill + SAVE/RESET/RESIZE/CANCEL bar).
+     * The standalone LayoutEditorActivity supplies its own buttons as
+     * regular Android widgets, so we don't want double UI.
+     */
+    public void setInternalHudVisible(boolean visible) {
+        internalHudVisible = visible;
+        invalidate();
+    }
+
+    private void resetInputState() {
         pointerToElement.clear();
-        leftPointer = rightPointer = -1;
+        leftPointer = rightPointer = lookPointer = -1;
         leftStickX = leftStickY = rightStickX = rightStickY = 0f;
         pressedButtons = 0;
         publish(false);
@@ -120,23 +176,33 @@ public class TouchOverlayView extends View {
     // ---------------- Layout helpers ----------------
 
     private float px(float norm, int size) { return norm * size; }
-
-    /** Min of width/height used for radius sizing so buttons stay circular. */
     private int minExtent() { return Math.min(getWidth(), getHeight()); }
 
     @Nullable
     private TouchLayout.Element hitTest(float x, float y) {
         int w = getWidth(), h = getHeight(), m = minExtent();
-        // Reverse iterate so visually-top-most wins (buttons drawn last).
+        // Reverse iterate so visually top-most (buttons) wins over the lookpad.
         for (int i = layout.elements.size() - 1; i >= 0; --i) {
             TouchLayout.Element el = layout.elements.get(i);
-            float dx = x - px(el.cx, w);
-            float dy = y - px(el.cy, h);
-            float r = el.radius * m;
-            // Give sticks a bigger hit area so the thumb doesn't miss.
-            if (el.kind != TouchLayout.Kind.BUTTON) r *= 1.4f;
-            if (dx * dx + dy * dy <= r * r) return el;
+            float cx = px(el.cx, w), cy = px(el.cy, h);
+            if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+                float rx = el.hw * w, ry = el.hh * h;
+                if (x >= cx - rx && x <= cx + rx && y >= cy - ry && y <= cy + ry) {
+                    return el;
+                }
+            } else {
+                float dx = x - cx, dy = y - cy;
+                float r = el.radius * m;
+                if (el.kind != TouchLayout.Kind.BUTTON) r *= 1.4f;
+                if (dx * dx + dy * dy <= r * r) return el;
+            }
         }
+        return null;
+    }
+
+    @Nullable
+    private TouchLayout.Element findById(String id) {
+        for (TouchLayout.Element el : layout.elements) if (el.id.equals(id)) return el;
         return null;
     }
 
@@ -144,16 +210,23 @@ public class TouchOverlayView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (editMode) return onEditTouch(ev);
-
         int action = ev.getActionMasked();
         int idx = ev.getActionIndex();
+        float x = ev.getX(idx), y = ev.getY(idx);
+
+        // --- HUD (always tested first, in both gameplay and edit mode) ---
+        if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+            if (handleHudDown(x, y)) return true;
+        }
+
+        if (editMode) return onEditTouch(ev);
+
         int pid = ev.getPointerId(idx);
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
-                handleDown(pid, ev.getX(idx), ev.getY(idx));
+                handleDown(pid, x, y);
                 break;
             case MotionEvent.ACTION_MOVE:
                 for (int i = 0; i < ev.getPointerCount(); ++i) {
@@ -167,7 +240,7 @@ public class TouchOverlayView extends View {
                 break;
         }
 
-        publish(pointerToElement.size() > 0);
+        publish(pointerToElement.size() > 0 || lookPointer != -1);
         invalidate();
         return true;
     }
@@ -191,6 +264,15 @@ public class TouchOverlayView extends View {
                     updateStick(el, x, y, false);
                 }
                 break;
+            case LOOK_PAD:
+                if (lookPointer == -1) {
+                    lookPointer = pid;
+                    lookLastX = x; lookLastY = y;
+                    lookLastMoveTime = SystemClock.uptimeMillis();
+                    pointerToElement.put(pid, el.id);
+                    scheduleLookTick();
+                }
+                break;
             case BUTTON:
                 pointerToElement.put(pid, el.id);
                 pressedButtons |= el.mask;
@@ -199,25 +281,35 @@ public class TouchOverlayView extends View {
     }
 
     private void handleMove(int pid, float x, float y) {
-        String id = pointerToElement.get(pid);
-        if (id == null) {
-            // A pointer that started outside any element can still slide
-            // onto a button (common for quick fire taps).
-            TouchLayout.Element el = hitTest(x, y);
-            if (el != null && el.kind == TouchLayout.Kind.BUTTON) {
-                pointerToElement.put(pid, el.id);
-                pressedButtons |= el.mask;
-            }
+        if (pid == lookPointer) {
+            float dx = x - lookLastX;
+            float dy = y - lookLastY;
+            lookLastX = x; lookLastY = y;
+            int m = minExtent();
+            // Normalize by screen size so sensitivity is resolution-independent.
+            rightStickX = clampStick(rightStickX + dx * LOOK_SENS / m);
+            rightStickY = clampStick(rightStickY + dy * LOOK_SENS / m);
+            lookLastMoveTime = SystemClock.uptimeMillis();
+            scheduleLookTick();
             return;
         }
+        String id = pointerToElement.get(pid);
+        if (id == null) return;
         TouchLayout.Element el = findById(id);
         if (el == null) return;
         if (el.kind == TouchLayout.Kind.LEFT_STICK) updateStick(el, x, y, true);
         else if (el.kind == TouchLayout.Kind.RIGHT_STICK) updateStick(el, x, y, false);
-        // Buttons only react on down/up, sliding around doesn't retrigger.
     }
 
     private void handleUp(int pid) {
+        if (pid == lookPointer) {
+            lookPointer = -1;
+            rightStickX = 0;
+            rightStickY = 0;
+            pointerToElement.remove(pid);
+            return;
+        }
+
         String id = pointerToElement.get(pid);
         if (id == null) return;
         pointerToElement.remove(pid);
@@ -239,39 +331,107 @@ public class TouchOverlayView extends View {
                 }
                 break;
             case BUTTON:
-                // Only clear the bit if no other active pointer is holding
-                // the same button id (rare but possible when rebound).
                 boolean stillHeld = false;
                 for (int i = 0; i < pointerToElement.size(); ++i) {
                     if (id.equals(pointerToElement.valueAt(i))) { stillHeld = true; break; }
                 }
                 if (!stillHeld) pressedButtons &= ~el.mask;
                 break;
+            default:
+                break;
         }
-    }
-
-    @Nullable
-    private TouchLayout.Element findById(String id) {
-        for (TouchLayout.Element el : layout.elements) if (el.id.equals(id)) return el;
-        return null;
     }
 
     private void updateStick(TouchLayout.Element el, float x, float y, boolean left) {
         int w = getWidth(), h = getHeight(), m = minExtent();
-        float cx = px(el.cx, w);
-        float cy = px(el.cy, h);
+        float cx = px(el.cx, w), cy = px(el.cy, h);
         float r = el.radius * m;
-        float dx = (x - cx) / r;
-        float dy = (y - cy) / r;
+        float dx = (x - cx) / r, dy = (y - cy) / r;
         float len = (float) Math.sqrt(dx * dx + dy * dy);
         if (len > 1f) { dx /= len; dy /= len; }
         if (left) { leftStickX = dx; leftStickY = dy; }
         else      { rightStickX = dx; rightStickY = dy; }
     }
 
+    private static float clampStick(float v) {
+        return v < -1f ? -1f : (v > 1f ? 1f : v);
+    }
+
+    // Decays rstick while the look finger is held still or released, so the
+    // camera stops rotating when the user stops moving.
+    private void onLookTick() {
+        lookTickScheduled = false;
+        long now = SystemClock.uptimeMillis();
+        boolean active = lookPointer != -1;
+        if (active && now - lookLastMoveTime > LOOK_IDLE_MS) {
+            rightStickX *= (1f - LOOK_DECAY);
+            rightStickY *= (1f - LOOK_DECAY);
+            if (Math.abs(rightStickX) < 0.015f) rightStickX = 0f;
+            if (Math.abs(rightStickY) < 0.015f) rightStickY = 0f;
+        }
+        publish(pointerToElement.size() > 0 || active);
+        invalidate();
+        if (active || rightStickX != 0f || rightStickY != 0f) {
+            scheduleLookTick();
+        }
+    }
+
+    private void scheduleLookTick() {
+        if (!lookTickScheduled) {
+            lookTickScheduled = true;
+            postDelayed(lookTicker, LOOK_TICK_MS);
+        }
+    }
+
     private void publish(boolean anyDown) {
         nativeSetState(leftStickX, leftStickY, rightStickX, rightStickY,
                 pressedButtons, anyDown);
+    }
+
+    // ---------------- HUD (edit toggle + edit-mode buttons) ----------------
+
+    /** Returns true if the down-event was consumed by a HUD control. */
+    private boolean handleHudDown(float x, float y) {
+        if (!internalHudVisible) return false;
+        // Edit mode: Save / Reset / Resize / Cancel strip.
+        if (editMode) {
+            if (btnSaveRect.contains(x, y)) {
+                layout.save(getContext());
+                editSnapshot = null;
+                setEditMode(false);
+                return true;
+            }
+            if (btnCancelRect.contains(x, y)) {
+                if (editSnapshot != null) layout.assignFrom(editSnapshot);
+                setEditMode(false);
+                return true;
+            }
+            if (btnResetRect.contains(x, y)) {
+                TouchLayout defaults = TouchLayout.defaults();
+                // Overwrite only geometry; keep same element ids/order.
+                for (int i = 0; i < layout.elements.size() && i < defaults.elements.size(); ++i) {
+                    TouchLayout.Element dst = layout.elements.get(i);
+                    TouchLayout.Element s = defaults.elements.get(i);
+                    dst.cx = s.cx; dst.cy = s.cy;
+                    dst.radius = s.radius;
+                    dst.hw = s.hw; dst.hh = s.hh;
+                }
+                invalidate();
+                return true;
+            }
+            if (btnResizeRect.contains(x, y)) {
+                resizeMode = !resizeMode;
+                invalidate();
+                return true;
+            }
+            return false;
+        }
+        // Gameplay: only the floating EDIT pill is interactive in the HUD.
+        if (editPillRect.contains(x, y)) {
+            setEditMode(true);
+            return true;
+        }
+        return false;
     }
 
     // ---------------- Edit mode ----------------
@@ -297,11 +457,19 @@ public class TouchOverlayView extends View {
                 TouchLayout.Element el = findById(draggedId);
                 if (el == null) return true;
                 if (resizeMode) {
-                    // Distance from element center -> new radius.
-                    float dx = x - px(el.cx, w);
-                    float dy = y - px(el.cy, h);
-                    float newR = (float) Math.sqrt(dx * dx + dy * dy) / m;
-                    el.radius = Math.max(0.03f, Math.min(0.25f, newR));
+                    float dxn = Math.abs(x - px(el.cx, w)) / w;
+                    float dyn = Math.abs(y - px(el.cy, h)) / h;
+                    if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+                        el.hw = Math.max(0.05f, Math.min(0.48f, dxn));
+                        el.hh = Math.max(0.05f, Math.min(0.48f, dyn));
+                    } else {
+                        float dxM = (x - px(el.cx, w)) / m;
+                        float dyM = (y - px(el.cy, h)) / m;
+                        float newR = (float) Math.sqrt(dxM * dxM + dyM * dyM);
+                        el.radius = Math.max(0.03f, Math.min(0.25f, newR));
+                        el.hw = el.radius;
+                        el.hh = el.radius;
+                    }
                 } else {
                     el.cx = Math.max(0.02f, Math.min(0.98f, (x - dragOffsetX) / w));
                     el.cy = Math.max(0.02f, Math.min(0.98f, (y - dragOffsetY) / h));
@@ -312,7 +480,6 @@ public class TouchOverlayView extends View {
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_CANCEL:
                 draggedId = null;
-                if (editListener != null) editListener.onLayoutChanged();
                 break;
         }
         invalidate();
@@ -328,19 +495,30 @@ public class TouchOverlayView extends View {
         paintLabel.setTextSize(Math.max(16f, m * 0.03f));
 
         for (TouchLayout.Element el : layout.elements) {
-            float cx = px(el.cx, w);
-            float cy = px(el.cy, h);
-            float r = el.radius * m;
+            float cx = px(el.cx, w), cy = px(el.cy, h);
             switch (el.kind) {
                 case LEFT_STICK:
                 case RIGHT_STICK: {
+                    float r = el.radius * m;
                     canvas.drawCircle(cx, cy, r, paintBase);
                     float sx = (el.kind == TouchLayout.Kind.LEFT_STICK) ? leftStickX : rightStickX;
                     float sy = (el.kind == TouchLayout.Kind.LEFT_STICK) ? leftStickY : rightStickY;
                     canvas.drawCircle(cx + sx * r * 0.5f, cy + sy * r * 0.5f, r * 0.45f, paintKnob);
                     break;
                 }
+                case LOOK_PAD: {
+                    float rx = el.hw * w, ry = el.hh * h;
+                    RectF rect = new RectF(cx - rx, cy - ry, cx + rx, cy + ry);
+                    canvas.drawRect(rect, paintLookFill);
+                    canvas.drawRect(rect, paintLookBorder);
+                    if (el.label != null && !el.label.isEmpty()) {
+                        canvas.drawText(el.label, cx,
+                                cy - ry + paintLabel.getTextSize() * 1.2f, paintLabel);
+                    }
+                    break;
+                }
                 case BUTTON: {
+                    float r = el.radius * m;
                     Paint p = (pressedButtons & el.mask) != 0 ? paintBtnActive : paintBtnIdle;
                     canvas.drawCircle(cx, cy, r, p);
                     if (el.label != null && !el.label.isEmpty()) {
@@ -351,12 +529,72 @@ public class TouchOverlayView extends View {
                 }
             }
             if (editMode) {
-                canvas.drawCircle(cx, cy, r, paintEditBorder);
+                if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+                    float rx = el.hw * w, ry = el.hh * h;
+                    canvas.drawRect(cx - rx, cy - ry, cx + rx, cy + ry, paintEditBorder);
+                } else {
+                    float r = el.radius * m;
+                    canvas.drawCircle(cx, cy, r, paintEditBorder);
+                }
             }
+        }
+
+        if (internalHudVisible) {
+            drawHud(canvas, w, h, m);
         }
     }
 
-    // Published to native (see touch.c).
+    private void drawHud(Canvas canvas, int w, int h, int m) {
+        float dp = m / 400f;
+        float pillH = 48 * dp, pillW = 96 * dp;
+        float margin = 12 * dp;
+
+        if (editMode) {
+            // Top bar with Save / Reset / Resize / Cancel.
+            float barH = pillH + margin * 1.5f;
+            canvas.drawRect(0, 0, w, barH, paintHudBar);
+
+            float btnY0 = margin * 0.3f;
+            float btnY1 = btnY0 + pillH;
+            float gap = 8 * dp;
+            float x = margin;
+
+            btnSaveRect.set(x, btnY0, x + pillW, btnY1);
+            x += pillW + gap;
+            btnResizeRect.set(x, btnY0, x + pillW * 1.2f, btnY1);
+            x += pillW * 1.2f + gap;
+            btnResetRect.set(x, btnY0, x + pillW, btnY1);
+            x += pillW + gap;
+            btnCancelRect.set(x, btnY0, x + pillW, btnY1);
+
+            drawPill(canvas, btnSaveRect,  0xFF3a8a3a, "SAVE");
+            drawPill(canvas, btnResizeRect,
+                    resizeMode ? 0xFFd18f1f : 0xFF444444,
+                    resizeMode ? "RESIZE: ON" : "RESIZE: OFF");
+            drawPill(canvas, btnResetRect, 0xFF444444, "RESET");
+            drawPill(canvas, btnCancelRect, 0xFF8a3a3a, "CANCEL");
+
+            // Disable the live-edit pill while editing to avoid visual clutter.
+            editPillRect.setEmpty();
+        } else {
+            // Floating "EDIT" pill in the top-right corner.
+            float x0 = w - margin - pillW;
+            float y0 = margin;
+            editPillRect.set(x0, y0, x0 + pillW, y0 + pillH);
+            drawPill(canvas, editPillRect, 0xAA202028, "EDIT");
+        }
+    }
+
+    private void drawPill(Canvas canvas, RectF rect, int argb, String label) {
+        paintEditPillFill.setColor(argb);
+        float r = rect.height() * 0.5f;
+        canvas.drawRoundRect(rect, r, r, paintEditPillFill);
+        paintEditPillText.setTextSize(rect.height() * 0.45f);
+        canvas.drawText(label, rect.centerX(),
+                rect.centerY() + paintEditPillText.getTextSize() * 0.35f,
+                paintEditPillText);
+    }
+
     private native void nativeSetState(float lx, float ly, float rx, float ry,
                                        int buttons, boolean anyDown);
 }
