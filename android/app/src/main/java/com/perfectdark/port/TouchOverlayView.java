@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.SparseArray;
@@ -99,6 +100,10 @@ public class TouchOverlayView extends View {
     private final Paint paintEditPillFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintEditPillText = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint paintHudBar = new Paint();
+    private final Paint paintIconStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint paintIconFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path tmpPath = new Path();
+    private final RectF tmpRect = new RectF();
 
     public TouchOverlayView(Context c) {
         super(c);
@@ -146,6 +151,14 @@ public class TouchOverlayView extends View {
         paintEditPillText.setTextAlign(Paint.Align.CENTER);
 
         paintHudBar.setColor(Color.argb(200, 20, 20, 28));
+
+        paintIconStroke.setColor(0xFFFFFFFF);
+        paintIconStroke.setStyle(Paint.Style.STROKE);
+        paintIconStroke.setStrokeCap(Paint.Cap.ROUND);
+        paintIconStroke.setStrokeJoin(Paint.Join.ROUND);
+
+        paintIconFill.setColor(0xFFFFFFFF);
+        paintIconFill.setStyle(Paint.Style.FILL);
     }
 
     public TouchLayout getLayout() { return layout; }
@@ -596,12 +609,9 @@ public class TouchOverlayView extends View {
                     break;
                 case BUTTON: {
                     float r = el.radius * m;
-                    Paint p = (pressedButtons & el.mask) != 0 ? paintBtnActive : paintBtnIdle;
-                    canvas.drawCircle(cx, cy, r, p);
-                    if (el.label != null && !el.label.isEmpty()) {
-                        canvas.drawText(el.label, cx,
-                                cy + paintLabel.getTextSize() * 0.35f, paintLabel);
-                    }
+                    boolean pressed = (pressedButtons & el.mask) != 0;
+                    canvas.drawCircle(cx, cy, r, pressed ? paintBtnActive : paintBtnIdle);
+                    drawButtonIcon(canvas, el.id, cx, cy, r, pressed);
                     break;
                 }
             }
@@ -712,6 +722,152 @@ public class TouchOverlayView extends View {
             float y0 = margin;
             editPillRect.set(x0, y0, x0 + pillW, y0 + pillH);
             drawPill(canvas, editPillRect, 0xAA202028, "EDIT");
+        }
+    }
+
+    /**
+     * Draws a vector icon that represents what the button does, centered on
+     * (cx, cy) with a drawing radius of ~0.55 * button radius.
+     */
+    private void drawButtonIcon(Canvas canvas, String id, float cx, float cy, float r, boolean pressed) {
+        int alpha = pressed ? 0xFF : 0xE0;
+        paintIconStroke.setColor(0x00FFFFFF | (alpha << 24));
+        paintIconFill.setColor(0x00FFFFFF | (alpha << 24));
+        float ir = r * 0.55f;
+
+        switch (id) {
+            case "fire": {
+                // Trigger bullseye: outer orange ring + solid red dot.
+                paintIconStroke.setColor(0x00FF6040 | (alpha << 24));
+                paintIconStroke.setStrokeWidth(r * 0.10f);
+                canvas.drawCircle(cx, cy, ir, paintIconStroke);
+                paintIconFill.setColor(0x00FF4030 | (alpha << 24));
+                canvas.drawCircle(cx, cy, ir * 0.55f, paintIconFill);
+                paintIconStroke.setColor(0x00FFFFFF | (alpha << 24));
+                paintIconFill.setColor(0x00FFFFFF | (alpha << 24));
+                break;
+            }
+            case "aim": {
+                // Scope reticle: ring + cross lines with central dot.
+                paintIconStroke.setStrokeWidth(r * 0.08f);
+                canvas.drawCircle(cx, cy, ir, paintIconStroke);
+                canvas.drawLine(cx - ir * 1.15f, cy, cx - ir * 0.45f, cy, paintIconStroke);
+                canvas.drawLine(cx + ir * 0.45f, cy, cx + ir * 1.15f, cy, paintIconStroke);
+                canvas.drawLine(cx, cy - ir * 1.15f, cx, cy - ir * 0.45f, paintIconStroke);
+                canvas.drawLine(cx, cy + ir * 0.45f, cx, cy + ir * 1.15f, paintIconStroke);
+                canvas.drawCircle(cx, cy, ir * 0.12f, paintIconFill);
+                break;
+            }
+            case "use": {
+                // Upward-pointing hand / open palm, approximated as an arrow.
+                paintIconStroke.setStrokeWidth(r * 0.13f);
+                tmpPath.reset();
+                tmpPath.moveTo(cx - ir * 0.55f, cy + ir * 0.6f);
+                tmpPath.lineTo(cx + ir * 0.55f, cy + ir * 0.6f);
+                tmpPath.lineTo(cx + ir * 0.55f, cy - ir * 0.3f);
+                tmpPath.moveTo(cx, cy - ir * 0.8f);
+                tmpPath.lineTo(cx + ir * 0.55f, cy - ir * 0.3f);
+                tmpPath.lineTo(cx, cy + ir * 0.15f);
+                canvas.drawPath(tmpPath, paintIconStroke);
+                break;
+            }
+            case "reload": {
+                // 3/4 circular arrow with a triangular arrowhead.
+                paintIconStroke.setStrokeWidth(r * 0.13f);
+                paintIconStroke.setStyle(Paint.Style.STROKE);
+                tmpRect.set(cx - ir, cy - ir, cx + ir, cy + ir);
+                canvas.drawArc(tmpRect, -40f, 260f, false, paintIconStroke);
+                // Arrow tip at sweep end (-40 + 260 = 220 degrees).
+                double endAng = Math.toRadians(220);
+                float ex = cx + ir * (float) Math.cos(endAng);
+                float ey = cy + ir * (float) Math.sin(endAng);
+                double perp = endAng + Math.PI / 2;
+                float nx = (float) Math.cos(perp), ny = (float) Math.sin(perp);
+                float tipLen = ir * 0.45f;
+                float tipBase = ir * 0.30f;
+                float bx = ex - tipLen * (float) Math.cos(endAng);
+                float by = ey - tipLen * (float) Math.sin(endAng);
+                tmpPath.reset();
+                tmpPath.moveTo(ex, ey);
+                tmpPath.lineTo(bx + nx * tipBase, by + ny * tipBase);
+                tmpPath.lineTo(bx - nx * tipBase, by - ny * tipBase);
+                tmpPath.close();
+                canvas.drawPath(tmpPath, paintIconFill);
+                break;
+            }
+            case "altfire": {
+                // Hollow ring indicating "alternate mode".
+                paintIconStroke.setStrokeWidth(r * 0.10f);
+                canvas.drawCircle(cx, cy, ir * 0.75f, paintIconStroke);
+                canvas.drawCircle(cx, cy, ir * 0.15f, paintIconFill);
+                break;
+            }
+            case "wprev":
+            case "wnext": {
+                boolean left = id.equals("wprev");
+                float sign = left ? -1f : 1f;
+                tmpPath.reset();
+                tmpPath.moveTo(cx + sign * ir * 0.55f, cy);
+                tmpPath.lineTo(cx - sign * ir * 0.35f, cy - ir * 0.6f);
+                tmpPath.lineTo(cx - sign * ir * 0.35f, cy + ir * 0.6f);
+                tmpPath.close();
+                canvas.drawPath(tmpPath, paintIconFill);
+                break;
+            }
+            case "radial": {
+                // 3×3 dot grid, evocative of the weapon radial menu.
+                float sp = ir * 0.55f;
+                float dr = ir * 0.14f;
+                for (int gx = -1; gx <= 1; ++gx) {
+                    for (int gy = -1; gy <= 1; ++gy) {
+                        canvas.drawCircle(cx + gx * sp, cy + gy * sp, dr, paintIconFill);
+                    }
+                }
+                break;
+            }
+            case "crouch": {
+                // Down chevron on top of a floor bar.
+                paintIconStroke.setStrokeWidth(r * 0.14f);
+                tmpPath.reset();
+                tmpPath.moveTo(cx - ir * 0.55f, cy - ir * 0.25f);
+                tmpPath.lineTo(cx, cy + ir * 0.25f);
+                tmpPath.lineTo(cx + ir * 0.55f, cy - ir * 0.25f);
+                canvas.drawPath(tmpPath, paintIconStroke);
+                canvas.drawLine(cx - ir * 0.7f, cy + ir * 0.55f,
+                                cx + ir * 0.7f, cy + ir * 0.55f, paintIconStroke);
+                break;
+            }
+            case "start": {
+                // Pause bars (==) for START / pause.
+                paintIconFill.setColor(0x00FFFFFF | (alpha << 24));
+                float bw = ir * 0.25f, bh = ir * 0.9f;
+                canvas.drawRoundRect(cx - ir * 0.45f, cy - bh * 0.5f,
+                        cx - ir * 0.45f + bw, cy + bh * 0.5f,
+                        bw * 0.4f, bw * 0.4f, paintIconFill);
+                canvas.drawRoundRect(cx + ir * 0.20f, cy - bh * 0.5f,
+                        cx + ir * 0.20f + bw, cy + bh * 0.5f,
+                        bw * 0.4f, bw * 0.4f, paintIconFill);
+                break;
+            }
+            case "cancel": {
+                // X mark for back / cancel.
+                paintIconStroke.setStrokeWidth(r * 0.15f);
+                canvas.drawLine(cx - ir * 0.55f, cy - ir * 0.55f,
+                                cx + ir * 0.55f, cy + ir * 0.55f, paintIconStroke);
+                canvas.drawLine(cx + ir * 0.55f, cy - ir * 0.55f,
+                                cx - ir * 0.55f, cy + ir * 0.55f, paintIconStroke);
+                break;
+            }
+            default: {
+                // Unknown id — fall back to a centered text label so future
+                // buttons still show something until an icon is authored.
+                TouchLayout.Element el = findById(id);
+                if (el != null && el.label != null && !el.label.isEmpty()) {
+                    paintLabel.setTextSize(r * 0.85f);
+                    canvas.drawText(el.label, cx,
+                            cy + paintLabel.getTextSize() * 0.35f, paintLabel);
+                }
+            }
         }
     }
 
