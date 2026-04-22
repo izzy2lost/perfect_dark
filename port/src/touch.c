@@ -29,6 +29,13 @@ static atomic_int writeSlot = 0;   // slot Java is filling
 static atomic_int liveSeq = 0;     // bumped after each publish
 static atomic_int active = 0;      // nonzero if any finger down
 
+// Look-pad drag deltas. Written from Java (UI thread), consumed from the
+// game thread once per frame. Simple atomic fetch_add / exchange: we do not
+// care about precise per-event ordering, only that the running sum does not
+// tear or leak motion.
+static atomic_int lookDeltaX = 0;
+static atomic_int lookDeltaY = 0;
+
 static inline s8 axisToS8(f32 v)
 {
 	if (v > 1.f) v = 1.f;
@@ -80,6 +87,14 @@ s32 touchIsActive(void)
 	return atomic_load_explicit(&active, memory_order_acquire);
 }
 
+void touchConsumeLookDelta(s32 *dx, s32 *dy)
+{
+	s32 rx = atomic_exchange_explicit(&lookDeltaX, 0, memory_order_acq_rel);
+	s32 ry = atomic_exchange_explicit(&lookDeltaY, 0, memory_order_acq_rel);
+	if (dx) *dx = rx;
+	if (dy) *dy = ry;
+}
+
 // ---------------- JNI entry points ----------------
 
 JNIEXPORT void JNICALL
@@ -107,6 +122,15 @@ Java_com_perfectdark_port_TouchOverlayView_nativeSetState(
 	atomic_store_explicit(&active, anyDown ? 1 : 0, memory_order_release);
 }
 
+JNIEXPORT void JNICALL
+Java_com_perfectdark_port_TouchOverlayView_nativeAddLookDelta(
+	JNIEnv *env, jobject thiz, jint dx, jint dy)
+{
+	(void)env; (void)thiz;
+	atomic_fetch_add_explicit(&lookDeltaX, dx, memory_order_release);
+	atomic_fetch_add_explicit(&lookDeltaY, dy, memory_order_release);
+}
+
 #else // !ANDROID
 
 void touchApplyToPad(OSContPad *npad)
@@ -117,6 +141,12 @@ void touchApplyToPad(OSContPad *npad)
 s32 touchIsActive(void)
 {
 	return 0;
+}
+
+void touchConsumeLookDelta(s32 *dx, s32 *dy)
+{
+	if (dx) *dx = 0;
+	if (dy) *dy = 0;
 }
 
 #endif

@@ -913,6 +913,17 @@ static inline void inputUpdateMouse(void)
 		mouseDY = my - mouseY;
 	}
 
+	// Fold any look-pad drag delta accumulated on the UI thread into the
+	// same mouse delta channel the game already uses for mouselook, so a
+	// drag feels exactly like moving a real mouse (instantaneous, not a
+	// sustained stick deflection).
+	{
+		s32 tdx = 0, tdy = 0;
+		touchConsumeLookDelta(&tdx, &tdy);
+		mouseDX += tdx;
+		mouseDY += tdy;
+	}
+
 	mouseX = mx;
 	mouseY = my;
 

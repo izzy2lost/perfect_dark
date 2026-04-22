@@ -5,7 +5,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
-import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -48,16 +47,13 @@ public class TouchOverlayView extends View {
     private float moveAnchorX, moveAnchorY;
     private float moveMaxRadiusPx;
 
-    // ---- Look pad (CoD-style drag-to-look) state.
+    // ---- Look pad (CoD / Quake-style: finger delta == mouse delta).
     private int lookPointer = -1;
     private float lookLastX, lookLastY;
-    private long lookLastMoveTime = 0;
-    private static final float LOOK_SENS = 3.2f;         // how fast a swipe maps to rstick
-    private static final float LOOK_DECAY = 0.35f;       // per-tick shrink when finger is still
-    private static final long  LOOK_TICK_MS = 16;
-    private static final long  LOOK_IDLE_MS = 18;        // stop producing delta if no move in this long
-    private boolean lookTickScheduled = false;
-    private final Runnable lookTicker = this::onLookTick;
+    // Scales phone pixels to "mouse pixels" before feeding inputMouseGet*.
+    // ~0.4 means a 25 mm thumb drag on a modern phone ≈ 90° camera rotation
+    // at the default MouseSens. Tune via pd.ini if needed.
+    private static final float LOOK_SENS_PX = 0.4f;
 
     // ---- Edit drag state.
     private String draggedId = null;
@@ -273,9 +269,7 @@ public class TouchOverlayView extends View {
                 if (lookPointer == -1) {
                     lookPointer = pid;
                     lookLastX = x; lookLastY = y;
-                    lookLastMoveTime = SystemClock.uptimeMillis();
                     pointerToElement.put(pid, el.id);
-                    scheduleLookTick();
                 }
                 break;
             case MOVE_PAD:
@@ -297,14 +291,13 @@ public class TouchOverlayView extends View {
 
     private void handleMove(int pid, float x, float y) {
         if (pid == lookPointer) {
-            float dx = x - lookLastX;
-            float dy = y - lookLastY;
+            float dx = (x - lookLastX) * LOOK_SENS_PX;
+            float dy = (y - lookLastY) * LOOK_SENS_PX;
             lookLastX = x; lookLastY = y;
-            int m = minExtent();
-            rightStickX = clampStick(rightStickX + dx * LOOK_SENS / m);
-            rightStickY = clampStick(rightStickY + dy * LOOK_SENS / m);
-            lookLastMoveTime = SystemClock.uptimeMillis();
-            scheduleLookTick();
+            int idx = Math.round(dx), idy = Math.round(dy);
+            if (idx != 0 || idy != 0) {
+                nativeAddLookDelta(idx, idy);
+            }
             return;
         }
         if (pid == movePointer) {
@@ -327,8 +320,6 @@ public class TouchOverlayView extends View {
     private void handleUp(int pid) {
         if (pid == lookPointer) {
             lookPointer = -1;
-            rightStickX = 0;
-            rightStickY = 0;
             pointerToElement.remove(pid);
             return;
         }
@@ -385,32 +376,6 @@ public class TouchOverlayView extends View {
 
     private static float clampStick(float v) {
         return v < -1f ? -1f : (v > 1f ? 1f : v);
-    }
-
-    // Decays rstick while the look finger is held still or released, so the
-    // camera stops rotating when the user stops moving.
-    private void onLookTick() {
-        lookTickScheduled = false;
-        long now = SystemClock.uptimeMillis();
-        boolean active = lookPointer != -1;
-        if (active && now - lookLastMoveTime > LOOK_IDLE_MS) {
-            rightStickX *= (1f - LOOK_DECAY);
-            rightStickY *= (1f - LOOK_DECAY);
-            if (Math.abs(rightStickX) < 0.015f) rightStickX = 0f;
-            if (Math.abs(rightStickY) < 0.015f) rightStickY = 0f;
-        }
-        publish(pointerToElement.size() > 0 || active);
-        invalidate();
-        if (active || rightStickX != 0f || rightStickY != 0f) {
-            scheduleLookTick();
-        }
-    }
-
-    private void scheduleLookTick() {
-        if (!lookTickScheduled) {
-            lookTickScheduled = true;
-            postDelayed(lookTicker, LOOK_TICK_MS);
-        }
     }
 
     private void publish(boolean anyDown) {
@@ -648,4 +613,5 @@ public class TouchOverlayView extends View {
 
     private native void nativeSetState(float lx, float ly, float rx, float ry,
                                        int buttons, boolean anyDown);
+    private native void nativeAddLookDelta(int dx, int dy);
 }

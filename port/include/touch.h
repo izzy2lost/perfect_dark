@@ -15,4 +15,11 @@ void touchApplyToPad(OSContPad *npad);
 // exist without forcing the touch overlay to always show.
 s32 touchIsActive(void);
 
+// Called by inputUpdateMouse() to drain any pending look delta that was
+// produced by a drag on the touch LOOK_PAD since last frame. The returned
+// values are added to mouseDX/mouseDY so the game's mouselook code rotates
+// the camera by the drag amount and stops when the finger stops. Reading
+// is destructive: the internal accumulator resets to zero after each call.
+void touchConsumeLookDelta(s32 *dx, s32 *dy);
+
 #endif
