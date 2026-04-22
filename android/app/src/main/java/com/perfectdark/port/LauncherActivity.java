@@ -61,6 +61,16 @@ public class LauncherActivity extends AppCompatActivity {
 
         ensureDataDir();
         updatePlayEnabled();
+
+        // If the ROM is already in place and matches a supported hash, skip
+        // the menu entirely and drop straight into the game. The user can
+        // still access the touch layout editor from the in-game EDIT pill.
+        if (romExists()) {
+            File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
+            if (checkRomHash(target) == 0) {
+                startGame();
+            }
+        }
     }
 
     @Override
