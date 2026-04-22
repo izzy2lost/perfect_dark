@@ -43,6 +43,11 @@ public class TouchOverlayView extends View {
     private float rightStickX, rightStickY;
     private int pressedButtons = 0;
 
+    // ---- Floating-stick move pad (CoD-style: stick center = touch point).
+    private int movePointer = -1;
+    private float moveAnchorX, moveAnchorY;
+    private float moveMaxRadiusPx;
+
     // ---- Look pad (CoD-style drag-to-look) state.
     private int lookPointer = -1;
     private float lookLastX, lookLastY;
@@ -167,7 +172,7 @@ public class TouchOverlayView extends View {
 
     private void resetInputState() {
         pointerToElement.clear();
-        leftPointer = rightPointer = lookPointer = -1;
+        leftPointer = rightPointer = lookPointer = movePointer = -1;
         leftStickX = leftStickY = rightStickX = rightStickY = 0f;
         pressedButtons = 0;
         publish(false);
@@ -185,7 +190,7 @@ public class TouchOverlayView extends View {
         for (int i = layout.elements.size() - 1; i >= 0; --i) {
             TouchLayout.Element el = layout.elements.get(i);
             float cx = px(el.cx, w), cy = px(el.cy, h);
-            if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+            if (el.kind == TouchLayout.Kind.LOOK_PAD || el.kind == TouchLayout.Kind.MOVE_PAD) {
                 float rx = el.hw * w, ry = el.hh * h;
                 if (x >= cx - rx && x <= cx + rx && y >= cy - ry && y <= cy + ry) {
                     return el;
@@ -240,7 +245,7 @@ public class TouchOverlayView extends View {
                 break;
         }
 
-        publish(pointerToElement.size() > 0 || lookPointer != -1);
+        publish(pointerToElement.size() > 0 || lookPointer != -1 || movePointer != -1);
         invalidate();
         return true;
     }
@@ -273,6 +278,16 @@ public class TouchOverlayView extends View {
                     scheduleLookTick();
                 }
                 break;
+            case MOVE_PAD:
+                if (movePointer == -1) {
+                    movePointer = pid;
+                    moveAnchorX = x;
+                    moveAnchorY = y;
+                    float r = el.radius > 0f ? el.radius : 0.09f;
+                    moveMaxRadiusPx = r * minExtent();
+                    pointerToElement.put(pid, el.id);
+                }
+                break;
             case BUTTON:
                 pointerToElement.put(pid, el.id);
                 pressedButtons |= el.mask;
@@ -286,11 +301,19 @@ public class TouchOverlayView extends View {
             float dy = y - lookLastY;
             lookLastX = x; lookLastY = y;
             int m = minExtent();
-            // Normalize by screen size so sensitivity is resolution-independent.
             rightStickX = clampStick(rightStickX + dx * LOOK_SENS / m);
             rightStickY = clampStick(rightStickY + dy * LOOK_SENS / m);
             lookLastMoveTime = SystemClock.uptimeMillis();
             scheduleLookTick();
+            return;
+        }
+        if (pid == movePointer) {
+            float dx = (x - moveAnchorX) / moveMaxRadiusPx;
+            float dy = (y - moveAnchorY) / moveMaxRadiusPx;
+            float len = (float) Math.sqrt(dx * dx + dy * dy);
+            if (len > 1f) { dx /= len; dy /= len; }
+            leftStickX = dx;
+            leftStickY = dy;
             return;
         }
         String id = pointerToElement.get(pid);
@@ -306,6 +329,13 @@ public class TouchOverlayView extends View {
             lookPointer = -1;
             rightStickX = 0;
             rightStickY = 0;
+            pointerToElement.remove(pid);
+            return;
+        }
+        if (pid == movePointer) {
+            movePointer = -1;
+            leftStickX = 0;
+            leftStickY = 0;
             pointerToElement.remove(pid);
             return;
         }
@@ -459,7 +489,8 @@ public class TouchOverlayView extends View {
                 if (resizeMode) {
                     float dxn = Math.abs(x - px(el.cx, w)) / w;
                     float dyn = Math.abs(y - px(el.cy, h)) / h;
-                    if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+                    if (el.kind == TouchLayout.Kind.LOOK_PAD
+                            || el.kind == TouchLayout.Kind.MOVE_PAD) {
                         el.hw = Math.max(0.05f, Math.min(0.48f, dxn));
                         el.hh = Math.max(0.05f, Math.min(0.48f, dyn));
                     } else {
@@ -517,6 +548,25 @@ public class TouchOverlayView extends View {
                     }
                     break;
                 }
+                case MOVE_PAD: {
+                    float rx = el.hw * w, ry = el.hh * h;
+                    RectF rect = new RectF(cx - rx, cy - ry, cx + rx, cy + ry);
+                    canvas.drawRect(rect, paintLookFill);
+                    canvas.drawRect(rect, paintLookBorder);
+                    if (el.label != null && !el.label.isEmpty()) {
+                        canvas.drawText(el.label, cx,
+                                cy - ry + paintLabel.getTextSize() * 1.2f, paintLabel);
+                    }
+                    // When active, draw the floating stick at the anchor point.
+                    if (movePointer != -1) {
+                        canvas.drawCircle(moveAnchorX, moveAnchorY, moveMaxRadiusPx, paintBase);
+                        canvas.drawCircle(
+                                moveAnchorX + leftStickX * moveMaxRadiusPx * 0.5f,
+                                moveAnchorY + leftStickY * moveMaxRadiusPx * 0.5f,
+                                moveMaxRadiusPx * 0.45f, paintKnob);
+                    }
+                    break;
+                }
                 case BUTTON: {
                     float r = el.radius * m;
                     Paint p = (pressedButtons & el.mask) != 0 ? paintBtnActive : paintBtnIdle;
@@ -529,7 +579,8 @@ public class TouchOverlayView extends View {
                 }
             }
             if (editMode) {
-                if (el.kind == TouchLayout.Kind.LOOK_PAD) {
+                if (el.kind == TouchLayout.Kind.LOOK_PAD
+                        || el.kind == TouchLayout.Kind.MOVE_PAD) {
                     float rx = el.hw * w, ry = el.hh * h;
                     canvas.drawRect(cx - rx, cy - ry, cx + rx, cy + ry, paintEditBorder);
                 } else {

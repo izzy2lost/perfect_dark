@@ -31,7 +31,7 @@ public class TouchLayout {
     public static final int BTN_R       = 0x00000010;
     public static final int BTN_CROUCH  = 0x80000000;
 
-    public enum Kind { LEFT_STICK, RIGHT_STICK, BUTTON, LOOK_PAD }
+    public enum Kind { LEFT_STICK, RIGHT_STICK, BUTTON, LOOK_PAD, MOVE_PAD }
 
     public static class Element {
         public final String id;
@@ -74,21 +74,26 @@ public class TouchLayout {
         l.elements.add(Element.rect("lookpad", Kind.LOOK_PAD, "LOOK",
                 0.27f, 0.52f, 0.25f, 0.42f));
 
-        // Right thumb keeps the analog move stick.
-        l.elements.add(new Element("lstick", Kind.LEFT_STICK,  0, "",     0.86f, 0.70f, 0.11f));
+        // Right half is a floating-stick move pad. Touch anywhere inside the
+        // zone to anchor the stick center at your finger; drag from there.
+        // `radius` is the max deflection distance (normalized to min extent).
+        Element movepad = Element.rect("movepad", Kind.MOVE_PAD, "MOVE",
+                0.73f, 0.52f, 0.25f, 0.42f);
+        movepad.radius = 0.09f;
+        l.elements.add(movepad);
 
-        // Primary action cluster on the right side.
-        l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.90f, 0.35f, 0.075f));
-        l.elements.add(new Element("aim",    Kind.BUTTON, BTN_R,      "AIM",  0.76f, 0.30f, 0.060f));
-        l.elements.add(new Element("use",    Kind.BUTTON, BTN_A,      "USE",  0.72f, 0.55f, 0.055f));
-        l.elements.add(new Element("reload", Kind.BUTTON, BTN_X,      "RLD",  0.88f, 0.15f, 0.055f));
-        l.elements.add(new Element("altfire",Kind.BUTTON, BTN_L,      "ALT",  0.70f, 0.15f, 0.050f));
+        // Primary action cluster floats over the right-side move pad.
+        l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.92f, 0.78f, 0.070f));
+        l.elements.add(new Element("aim",    Kind.BUTTON, BTN_R,      "AIM",  0.93f, 0.45f, 0.055f));
+        l.elements.add(new Element("use",    Kind.BUTTON, BTN_A,      "USE",  0.93f, 0.20f, 0.050f));
+        l.elements.add(new Element("reload", Kind.BUTTON, BTN_X,      "RLD",  0.83f, 0.20f, 0.050f));
+        l.elements.add(new Element("altfire",Kind.BUTTON, BTN_L,      "ALT",  0.83f, 0.45f, 0.045f));
 
-        // Weapon + radial cluster on the left side, floating above lookpad.
-        l.elements.add(new Element("wprev",  Kind.BUTTON, BTN_DL,     "<",    0.06f, 0.40f, 0.050f));
-        l.elements.add(new Element("wnext",  Kind.BUTTON, BTN_Y,      ">",    0.24f, 0.40f, 0.050f));
-        l.elements.add(new Element("radial", Kind.BUTTON, BTN_DD,     "WPN",  0.14f, 0.30f, 0.055f));
-        l.elements.add(new Element("crouch", Kind.BUTTON, BTN_CROUCH, "CRC",  0.30f, 0.90f, 0.055f));
+        // Weapon + radial cluster over the left-side look pad.
+        l.elements.add(new Element("wprev",  Kind.BUTTON, BTN_DL,     "<",    0.06f, 0.30f, 0.045f));
+        l.elements.add(new Element("wnext",  Kind.BUTTON, BTN_Y,      ">",    0.17f, 0.18f, 0.045f));
+        l.elements.add(new Element("radial", Kind.BUTTON, BTN_DD,     "WPN",  0.08f, 0.18f, 0.045f));
+        l.elements.add(new Element("crouch", Kind.BUTTON, BTN_CROUCH, "CRC",  0.07f, 0.85f, 0.045f));
 
         // Menu + cancel at the top.
         l.elements.add(new Element("start",  Kind.BUTTON, BTN_START,  "STRT", 0.50f, 0.06f, 0.045f));
