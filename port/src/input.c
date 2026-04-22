@@ -1,3 +1,8 @@
+// data.h transitively pulls in <ultra64.h> which redeclares libc functions
+// with __attribute__((overloadable)). On Android this clashes with NDK's
+// libc if SDL (a heavy system-header pull) has already been included. So
+// pull data.h first, then SDL afterwards.
+#include "data.h"
 #include <string.h>
 #include <ctype.h>
 #include <SDL.h>
@@ -13,7 +18,6 @@
 #include "fs.h"
 #include "touch.h"
 #include "constants.h"
-#include "data.h"
 
 #if !SDL_VERSION_ATLEAST(2, 0, 14)
 // this was added in 2.0.14
