@@ -908,6 +908,20 @@ static MenuItemHandlerResult menuhandlerTexFilter2D(s32 operation, struct menuit
 	return 0;
 }
 
+static MenuItemHandlerResult menuhandlerAnisotropicFiltering(s32 operation, struct menuitem *item, union handlerdata *data)
+{
+	switch (operation) {
+	case MENUOP_GETSLIDER:
+		data->slider.value = videoGetAnisotropicFilter();
+		break;
+	case MENUOP_SET:
+		videoSetAnisotropicFilter(data->slider.value);
+		break;
+	}
+
+	return 0;
+}
+
 static MenuItemHandlerResult menuhandlerDisplayFPS(s32 operation, struct menuitem *item, union handlerdata *data)
 {
 	switch (operation) {
@@ -1100,6 +1114,14 @@ struct menuitem g_ExtendedVideoMenuItems[] = {
 		menuhandlerTexFilter2D,
 	},
 	{
+		MENUITEMTYPE_SLIDER,
+		0,
+		MENUITEMFLAG_LITERAL_TEXT | MENUITEMFLAG_SLIDER_WIDE,
+		(uintptr_t)"Anisotropic Filtering",
+		8,
+		menuhandlerAnisotropicFiltering,
+	},
+	{
 		MENUITEMTYPE_CHECKBOX,
 		0,
 		MENUITEMFLAG_LITERAL_TEXT,
@@ -1288,6 +1310,22 @@ static MenuItemHandlerResult menuhandlerCrosshairSway(s32 operation, struct menu
 		break;
 	}
 
+	return 0;
+}
+
+static MenuItemHandlerResult menuhandlerCrosshairEdgeBoundary(s32 operation, struct menuitem* item, union handlerdata *data)
+{
+	switch (operation) {
+	case MENUOP_GETSLIDER:
+		data->slider.value = (s32)(g_PlayerExtCfg[g_ExtMenuPlayer].crosshairedgeboundary * 10.f + 0.5f);
+		break;
+	case MENUOP_SET:
+		g_PlayerExtCfg[g_ExtMenuPlayer].crosshairedgeboundary = (f32)data->slider.value / 10.f;
+		break;
+	case MENUOP_GETSLIDERLABEL:
+		sprintf(data->slider.label, "%d", (s32)data->slider.value);
+		break;
+	}
 	return 0;
 }
 
@@ -1511,6 +1549,14 @@ struct menuitem g_ExtendedGameMenuItems[] = {
 		(uintptr_t)"Crosshair Sway",
 		20,
 		menuhandlerCrosshairSway,
+	},
+	{
+		MENUITEMTYPE_SLIDER,
+		0,
+		MENUITEMFLAG_LITERAL_TEXT | MENUITEMFLAG_SLIDER_WIDE,
+		(uintptr_t)"Crosshair Edge Deadzone",
+		10,
+		menuhandlerCrosshairEdgeBoundary,
 	},
 	{
 		MENUITEMTYPE_SLIDER,
@@ -1923,3 +1969,22 @@ struct menudialogdef g_ExtendedMenuDialog = {
 	MENUDIALOGFLAG_LITERAL_TEXT,
 	NULL,
 };
+
+void updateMaxAnisotropyLevel()
+{
+	for (int i = 0; i < ARRAYCOUNT(g_ExtendedVideoMenuItems); ++i) {
+		struct menuitem *item = &g_ExtendedVideoMenuItems[i];
+		const char *text = menuResolveParam2Text(item);
+		
+		if (text && strstr(text, "Anisotropic Filtering") != NULL) {
+			item->param3 = videoGetMaxAnisotropyLevel();
+			break;
+		}
+	}
+
+}
+
+void optionsMenuInit()
+{
+	updateMaxAnisotropyLevel();
+}

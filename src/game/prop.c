@@ -983,7 +983,7 @@ struct prop *shotCalculateHits(s32 handnum, bool isshooting, struct coord *gunpo
 bool shotTestLos(struct coord *gunpos2d, struct coord *gundir2d, struct coord *gunpos3d, struct coord *gundir3d, struct coord *endpos3d)
 {
 	struct prop **propptr;
-	struct hitthing sp664;
+	struct hitthing hitthing;
 	struct coord delta;
 	struct shotdata shotdata;
 	s32 i;
@@ -992,6 +992,8 @@ bool shotTestLos(struct coord *gunpos2d, struct coord *gundir2d, struct coord *g
 	RoomNum spb8[8];
 	RoomNum *roomsptr;
 	struct prop *prop;
+	s16 texturenum;
+	u32 surfacetype;
 
 	shotdata.gunpos3d.x = gunpos3d->x;
 	shotdata.gunpos3d.y = gunpos3d->y;
@@ -1040,11 +1042,11 @@ bool shotTestLos(struct coord *gunpos2d, struct coord *gundir2d, struct coord *g
 
 	// Check for BG hits first
 	for (i = 0; rooms[i] != -1; i++) {
-		if (bgTestHitInRoom(&shotdata.gunpos3d, endpos3d, rooms[i], &sp664)) {
+		if (bgTestHitInRoom(&shotdata.gunpos3d, endpos3d, rooms[i], &hitthing)) {
 			// check if it's far enough away from the end point
-			if (fabsf(sp664.pos.x - endpos3d->x) >= 0.1f ||
-					fabsf(sp664.pos.y - endpos3d->y) >= 0.1f ||
-					fabsf(sp664.pos.z - endpos3d->z) >= 0.1f) {
+			if (fabsf(hitthing.pos.x - endpos3d->x) >= 0.1f ||
+					fabsf(hitthing.pos.y - endpos3d->y) >= 0.1f ||
+					fabsf(hitthing.pos.z - endpos3d->z) >= 0.1f) {
 				return false;
 			}
 		}
@@ -1064,13 +1066,16 @@ bool shotTestLos(struct coord *gunpos2d, struct coord *gundir2d, struct coord *g
 			if (prop->type == PROPTYPE_CHR
 					|| (prop->type == PROPTYPE_PLAYER && prop->chr && (g_Vars.in_cutscene || playermgrGetPlayerNumByProp(prop) != g_Vars.currentplayernum))) {
 				chrTestHit(prop, &shotdata, false, true);
-			} else if (prop->type == PROPTYPE_WEAPON || prop->type == PROPTYPE_DOOR
+			} else if (prop->type == PROPTYPE_WEAPON || (prop->type == PROPTYPE_DOOR && ((struct doorobj *)prop->obj)->doortype != DOORTYPE_LASER)
 					|| (prop->type == PROPTYPE_OBJ && prop->obj->type != OBJTYPE_GLASS && prop->obj->type != OBJTYPE_TINTEDGLASS)) {
 				objTestHit(prop, &shotdata);
 			}
 			if (shotdata.hits[0].prop) {
+				texturenum = (prop->type == PROPTYPE_CHR || prop->type == PROPTYPE_PLAYER) ? -1 : shotdata.hits[0].hitthing.texturenum;
+				surfacetype = (texturenum >= 0 && texturenum < NUM_TEXTURES) ? g_Textures[texturenum].surfacetype : SURFACETYPE_DEFAULT;
 				// ignore some glass parts and shields
-				if (shotdata.hits[0].slowsbullet && shotdata.hits[0].hitthing.texturenum != 10000) {
+				if (shotdata.hits[0].slowsbullet && texturenum != 10000 &&
+				    surfacetype != SURFACETYPE_GLASS && surfacetype != SURFACETYPE_GLASSXLU) {
 					return false;
 				}
 			}

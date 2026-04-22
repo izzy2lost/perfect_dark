@@ -437,6 +437,38 @@ void bmoveUpdateSpeedThetaControl(f32 value)
 }
 
 /**
+ * Apply crosshair swivel based on camera movement with input detection
+ */
+static void bmoveApplyCrosshairSwivel(struct movedata *movedata, f32 mlookscale, f32 *x, f32 *y)
+{
+#ifdef PLATFORM_N64
+	*x = g_Vars.currentplayer->speedtheta * 0.3f + g_Vars.currentplayer->gunextraaimx;
+	*y = -g_Vars.currentplayer->speedverta * 0.1f + g_Vars.currentplayer->gunextraaimy;
+#else
+	f32 xscale, yscale;
+	bool mouse_active = (movedata->freelookdx || movedata->freelookdy);
+	bool joystick_active = (movedata->c1stickxraw != 0 || movedata->c1stickyraw != 0);
+	
+	if ((mouse_active) && joystick_active) {
+		// Mouse + joystick sway
+		xscale = PLAYER_EXTCFG().crosshairsway * 0.80f;  // 80% for precision+joystick sway
+		yscale = PLAYER_EXTCFG().crosshairsway * 0.80f;  // 80% for precision+joystick sway
+	} else if (mouse_active) {
+		// Mouse sway
+		xscale = PLAYER_EXTCFG().crosshairsway * 0.20f;  // 20% for mouse sway
+		yscale = PLAYER_EXTCFG().crosshairsway * 0.30f;  // 30% for mouse sway
+	} else {
+		// Joystick only or no input - full sway
+		xscale = yscale = PLAYER_EXTCFG().crosshairsway;
+	}
+	// Joystick x/y scaling
+	// 0.3f for x, 0.1f for y
+	*x = g_Vars.currentplayer->speedtheta * 0.3f * xscale + g_Vars.currentplayer->gunextraaimx;
+	*y = -g_Vars.currentplayer->speedverta * 0.1f * yscale + g_Vars.currentplayer->gunextraaimy;
+#endif
+}
+
+/**
  * Calculate the lookahead angle.
  *
  * The return value is the intended vertical angle to look at.
@@ -1412,31 +1444,31 @@ void bmoveProcessInput(bool allowc1x, bool allowc1y, bool allowc1buttons, bool i
 					}
 
 #ifndef PLATFORM_N64
-					// Handle turning and looking up/down via mouselook when aiming
-					if (g_Vars.currentplayer->insightaimmode && allowmcross && bgunGetWeaponNum(HAND_RIGHT) != WEAPON_HORIZONSCANNER) {
-						if (g_Vars.currentplayer->swivelpos[0] > 0.9f) {
-							movedata.aimturnrightspeed = (g_Vars.currentplayer->swivelpos[0] - 0.9f) / 0.1f;
-							movedata.aimturnleftspeed = 0.f;
-						} else if (g_Vars.currentplayer->swivelpos[0] < -0.9f) {
-							movedata.aimturnleftspeed = (g_Vars.currentplayer->swivelpos[0] - -0.9f) / -0.1f;
-							movedata.aimturnrightspeed = 0.f;
+					// Handle turning and looking (x/y) via mouselook when aiming
+					bool allowcross = allowmcross;
+					if (g_Vars.currentplayer->insightaimmode && allowcross && bgunGetWeaponNum(HAND_RIGHT) != WEAPON_HORIZONSCANNER) {
+						float edge_boundary = PLAYER_EXTCFG().crosshairedgeboundary;
+						if (g_Vars.currentplayer->swivelpos[0] > edge_boundary) {
+							movedata.aimturnrightspeed += (g_Vars.currentplayer->swivelpos[0] - edge_boundary) / (1.0f - edge_boundary);
+						} else if (g_Vars.currentplayer->swivelpos[0] < -edge_boundary) {
+							movedata.aimturnleftspeed += (g_Vars.currentplayer->swivelpos[0] + edge_boundary) / -(1.0f - edge_boundary);
 						}
 						f32 vertaup = 0.f, vertadown = 0.f;
-						if (g_Vars.currentplayer->swivelpos[1] > 0.9f) {
-							vertaup = (g_Vars.currentplayer->swivelpos[1] - 0.9f) / 0.1f;
-						} else if (g_Vars.currentplayer->swivelpos[1] < -0.9f) {
-							vertadown = (g_Vars.currentplayer->swivelpos[1] - -0.9f) / -0.1f;
+						if (g_Vars.currentplayer->swivelpos[1] > edge_boundary) {
+							vertaup = (g_Vars.currentplayer->swivelpos[1] - edge_boundary) / (1.0f - edge_boundary);
+						} else if (g_Vars.currentplayer->swivelpos[1] < -edge_boundary) {
+							vertadown = (g_Vars.currentplayer->swivelpos[1] + edge_boundary) / -(1.0f - edge_boundary);
 						}
 						// Uninvert pitch if needed
 						if (movedata.invertpitch) {
-							movedata.speedvertaup = vertadown;
-							movedata.speedvertadown = vertaup;
+							movedata.speedvertaup += vertadown;
+							movedata.speedvertadown += vertaup;
 						} else {
-							movedata.speedvertaup = vertaup;
-							movedata.speedvertadown = vertadown;
+							movedata.speedvertaup += vertaup;
+							movedata.speedvertadown += vertadown;
 						}
 					} else {
-						// Reset mouse aim position when not mouse aiming
+						// Reset mouse aim position when not aiming
 						g_Vars.currentplayer->swivelpos[0] = 0.f;
 						g_Vars.currentplayer->swivelpos[1] = 0.f;
 					}
@@ -2186,15 +2218,8 @@ void bmoveProcessInput(bool allowc1x, bool allowc1y, bool allowc1buttons, bool i
 			x = g_Vars.currentplayer->speedtheta * 0.3f + g_Vars.currentplayer->gunextraaimx;
 			y = -g_Vars.currentplayer->speedverta * 0.1f + g_Vars.currentplayer->gunextraaimy;
 #else
-			f32 xscale, yscale;
-			if (movedata.freelookdx || movedata.freelookdy) {
-				xscale = PLAYER_EXTCFG().crosshairsway * 0.20f;
-				yscale = PLAYER_EXTCFG().crosshairsway * 0.30f;
-			} else {
-				xscale = yscale = PLAYER_EXTCFG().crosshairsway;
-			}
-			x = g_Vars.currentplayer->speedtheta * 0.3f * xscale + g_Vars.currentplayer->gunextraaimx;
-			y = -g_Vars.currentplayer->speedverta * 0.1f * yscale + g_Vars.currentplayer->gunextraaimy;
+            // Crosshair swivel movement system
+			bmoveApplyCrosshairSwivel(&movedata, mlookscale, &x, &y);
 #endif
 
 			bgunSwivelWithDamp(x, y, PAL ? 0.955f : 0.963f);

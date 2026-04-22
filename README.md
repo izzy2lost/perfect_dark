@@ -99,7 +99,7 @@ Controls can be rebound in `pd.ini`. Default control scheme is as follows:
 | Aim mode         | RMB/Z                  | LT                       | R Trigger                 |
 | Use / Cancel     | E                      | N/A                      | B                         |
 | Use / Accept     | N/A                    | A                        | A                         |
-| Crouch cycle     | N/A                    | L3                       | `0x80000000` (Extra)      |
+| Crouch cycle     | N/A                    | LS Click                 | `0x80000000` (Extra)      |
 | Half-Crouch      | Shift                  | N/A                      | `0x40000000` (Extra)      |
 | Full-Crouch      | Control                | N/A                      | `0x20000000` (Extra)      |
 | Reload           | R                      | X                        | X `(0x40)`                |
@@ -206,7 +206,7 @@ It might be possible to build and run the game on platforms that are not specifi
 * Ryan Dwyer for the above, additional help, and `pd-extract`;
 * doomhack for the only other publicly available [PD porting effort](https://github.com/doomhack/perfect_dark) I could find;
 * [sm64-port](https://github.com/sm64-port/sm64-port) authors for the audio mixer and some other changes;
-* [Ship of Harkinian team](https://github.com/Kenix3/libultraship/tree/main/src/graphic/Fast3D), Emill and MaikelChan for the libultraship version of fast3d that this port uses;
+* [Ship of Harkinian team](https://github.com/Kenix3/libultraship/tree/main/src/fast), Emill and MaikelChan for the libultraship version of fast3d that this port uses;
 * lieff for [minimp3](https://github.com/lieff/minimp3);
 * Mouse Injector and 1964GEPD authors for some of the 60FPS- and mouselook-related fixes;
 * Raf for the 64-bit port;
