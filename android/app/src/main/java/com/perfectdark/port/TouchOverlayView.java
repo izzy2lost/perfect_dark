@@ -33,6 +33,9 @@ public class TouchOverlayView extends View {
     private boolean editMode = false;
     private boolean resizeMode = false;
     private boolean internalHudVisible = true;
+    // When true, the edit HUD shrinks to a single pill in the top-right so
+    // the user can place / drag buttons that live under the full bar.
+    private boolean hudCollapsed = false;
 
     // Snapshot taken when entering edit mode; restored if the user cancels.
     private @Nullable TouchLayout editSnapshot;
@@ -73,6 +76,7 @@ public class TouchOverlayView extends View {
     private final RectF btnSensYDownRect = new RectF();
     private final RectF btnSensYUpRect = new RectF();
     private final RectF sensYLabelRect = new RectF();
+    private final RectF btnCollapseRect = new RectF();
 
     // ---- Paints.
     private final Paint paintBase = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -149,6 +153,7 @@ public class TouchOverlayView extends View {
         editMode = enabled;
         if (enabled) {
             editSnapshot = layout.copy();
+            hudCollapsed = false;
         } else {
             editSnapshot = null;
         }
@@ -400,6 +405,17 @@ public class TouchOverlayView extends View {
         if (!internalHudVisible) return false;
         // Edit mode: Save / Reset / Resize / Cancel strip.
         if (editMode) {
+            // Collapse/expand toggle always takes priority so the user can
+            // reveal the rest of the screen underneath.
+            if (btnCollapseRect.contains(x, y)) {
+                hudCollapsed = !hudCollapsed;
+                invalidate();
+                return true;
+            }
+            if (hudCollapsed) {
+                // Only the collapse pill is interactive while minimized.
+                return false;
+            }
             if (btnSaveRect.contains(x, y)) {
                 layout.save(getContext());
                 editSnapshot = null;
@@ -537,9 +553,11 @@ public class TouchOverlayView extends View {
                     RectF rect = new RectF(cx - rx, cy - ry, cx + rx, cy + ry);
                     canvas.drawRect(rect, paintLookFill);
                     canvas.drawRect(rect, paintLookBorder);
+                    // Label centered so it never collides with the buttons at
+                    // the top or bottom of the screen, regardless of pad size.
                     if (el.label != null && !el.label.isEmpty()) {
                         canvas.drawText(el.label, cx,
-                                cy - ry + paintLabel.getTextSize() * 1.2f, paintLabel);
+                                cy + paintLabel.getTextSize() * 0.35f, paintLabel);
                     }
                     break;
                 }
@@ -550,7 +568,7 @@ public class TouchOverlayView extends View {
                     canvas.drawRect(rect, paintLookBorder);
                     if (el.label != null && !el.label.isEmpty()) {
                         canvas.drawText(el.label, cx,
-                                cy - ry + paintLabel.getTextSize() * 1.2f, paintLabel);
+                                cy + paintLabel.getTextSize() * 0.35f, paintLabel);
                     }
                     // When active, draw the floating stick at the anchor point.
                     if (movePointer != -1) {
@@ -596,6 +614,27 @@ public class TouchOverlayView extends View {
         float margin = 12 * dp;
 
         if (editMode) {
+            // The collapse pill lives in the top-right corner and is the
+            // only HUD control visible when collapsed.
+            float collapseW = pillH * 1.1f;
+            float collapseX0 = w - margin - collapseW;
+            float collapseY0 = margin * 0.3f;
+            btnCollapseRect.set(collapseX0, collapseY0,
+                    collapseX0 + collapseW, collapseY0 + pillH);
+
+            if (hudCollapsed) {
+                drawPill(canvas, btnCollapseRect, 0xAA202028, "EDIT ▼");
+                // Clear other rects so stale positions don't swallow taps.
+                btnSaveRect.setEmpty(); btnResizeRect.setEmpty();
+                btnResetRect.setEmpty(); btnCancelRect.setEmpty();
+                btnSensXDownRect.setEmpty(); btnSensXUpRect.setEmpty();
+                sensXLabelRect.setEmpty();
+                btnSensYDownRect.setEmpty(); btnSensYUpRect.setEmpty();
+                sensYLabelRect.setEmpty();
+                editPillRect.setEmpty();
+                return;
+            }
+
             // Two-row HUD. Row 1 = actions. Row 2 = per-axis sensitivity.
             float rowGapY = 6 * dp;
             float barH = pillH * 2 + rowGapY + margin * 1.6f;
@@ -651,6 +690,9 @@ public class TouchOverlayView extends View {
             drawPill(canvas, sensYLabelRect, 0xFF222228,
                     String.format("Y %.2f", layout.lookSensY));
             drawPill(canvas, btnSensYUpRect, 0xFF444444, "+");
+
+            // Collapse button last so it sits on top of the bar row.
+            drawPill(canvas, btnCollapseRect, 0xAA202028, "▲");
 
             // Disable the live-edit pill while editing to avoid visual clutter.
             editPillRect.setEmpty();

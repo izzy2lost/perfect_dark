@@ -73,18 +73,17 @@ public class TouchLayout {
     public static TouchLayout defaults() {
         TouchLayout l = new TouchLayout();
 
-        // Left half is the floating-stick move pad (CoD Mobile style). Half
-        // width shrunk so it does not cross the screen midline with the look
-        // pad — touches in the overlap region would go to whichever was
-        // drawn last, which is confusing.
+        // Left half is the floating-stick move pad (CoD Mobile style) and
+        // covers the full left half of the screen. Buttons placed on top of
+        // it win the hit test, so this is safe.
         Element movepad = Element.rect("movepad", Kind.MOVE_PAD, "MOVE",
-                0.25f, 0.52f, 0.23f, 0.42f);
+                0.25f, 0.50f, 0.25f, 0.50f);
         movepad.radius = 0.09f;
         l.elements.add(movepad);
 
-        // Right half is a drag-to-look pad; also shrunk to avoid overlap.
+        // Right half is a drag-to-look pad, full right half of the screen.
         l.elements.add(Element.rect("lookpad", Kind.LOOK_PAD, "LOOK",
-                0.75f, 0.52f, 0.23f, 0.42f));
+                0.75f, 0.50f, 0.25f, 0.50f));
 
         // Shooting cluster over the right-side look pad (right thumb / index).
         l.elements.add(new Element("fire",   Kind.BUTTON, BTN_Z,      "FIRE", 0.92f, 0.78f, 0.070f));
