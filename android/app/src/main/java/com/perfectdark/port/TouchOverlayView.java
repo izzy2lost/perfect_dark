@@ -48,9 +48,9 @@ public class TouchOverlayView extends View {
     // floating EDIT pill, stick feedback) smoothly dims to a low alpha so
     // it doesn't obscure gameplay. Any touch snaps it back to full alpha.
     // Bypassed while edit mode is active.
-    private static final long IDLE_BEFORE_FADE_MS = 3000L;
+    private static final long IDLE_BEFORE_FADE_MS = 7000L;
     private static final long FADE_DURATION_MS = 700L;
-    private static final float IDLE_ALPHA = 0.12f;
+    private static final float IDLE_ALPHA = 0.0f;
     private long lastInteractionTimeMs = SystemClock.uptimeMillis();
     private final Runnable fadeKicker = this::invalidate;
 
