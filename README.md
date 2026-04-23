@@ -1,216 +1,107 @@
-# Perfect Dark port
+# Perfect Dark — Android port with touch controls
 
-This repository contains a work-in-progress port of the [Perfect Dark decompilation](https://github.com/n64decomp/perfect_dark) to modern platforms.
+Port no oficial de **Perfect Dark** (Nintendo 64, 2000) para Android con **controles táctiles nativos**. Basado en el port de PC del equipo de [`fgsfdsfgs/perfect_dark`](https://github.com/fgsfdsfgs/perfect_dark) y en el trabajo inicial de Android de [`izzy2lost/perfect_dark`](https://github.com/izzy2lost/perfect_dark).
 
-To run the port, you must already have a Perfect Dark ROM, specifically one of the following:
-* `ntsc-final`/`US V1.1`/`US Rev 1` (md5 `e03b088b6ac9e0080440efed07c1e40f`).  
-  **This is the recommended version to use**.  
-  Called `NTSC version 8.7 final` on the boot screen.
-* `ntsc-1.0`/`US V1.0` (md5 `7f4171b0c8d17815be37913f535e4e93`).  
-  Technically supported, but not recommended.  
-  Called `NTSC version 8.7 final` on the boot screen as well.
-* `jpn-final` (md5 `538d2b75945eae069b29c46193e74790`).  
-  Technically supported, but requires a separate custom-built executable.  
-  Called `JPN version 8.9 final` on the boot screen.
-* `pal-final` (md5 `d9b5cd305d228424891ce38e71bc9213`).  
-  Technically supported, but requires a separate custom-built executable.  
-  Called `PAL 8.7 final` on the boot screen.
+> Necesitas aportar tu propia copia legal del ROM — aquí no se distribuye.
 
-## Status
+---
 
-The game is in a mostly functional state, with both singleplayer and split-screen multiplayer modes fully working.  
-There are minor graphics- and gameplay-related issues, and possibly occasional crashes.
+## Características
 
-**The following extra features are implemented:**
-* mouselook;
-* dual analog controller support;
-* widescreen resolution support;
-* configurable field of view;
-* 60 FPS support, including fixes for some framerate-related issues;
-* fixes for a couple original bugs and crashes;
-* basic mod support, currently enough to load a few custom levels;
-* slightly expanded memory heap size;
-* experimental high framerate support (up to 240 FPS):
-  * enable `Uncap Tickrate` in `Extended Video Options` to activate;
-  * in practice the game will have issues running faster than ~165 FPS, so use VSync or `Video.FramerateLimit` to cap it.
-* emulate the Transfer Pak functionality the game has on the Nintendo 64 to unlock some cheats automatically.
+- Port del decomp de Perfect Dark corriendo nativo en ARM (arm64‑v8a / armeabi‑v7a / x86_64 / x86).
+- **Overlay táctil al estilo CoD Mobile / Fortnite**:
+  - Mitad izquierda: zona de movimiento con stick flotante (se ancla donde pones el pulgar).
+  - Mitad derecha: zona de cámara tipo drag-to-look (arrastras, gira; sueltas, se detiene).
+  - Botones flotantes para FIRE, AIM, USE, RELOAD, ALT FIRE, cambio de arma, menú radial, crouch, pausa y back.
+  - Iconos vectoriales que escalan con el tamaño de cada botón.
+- **Editor de layout en vivo**: entras desde un pill flotante en la esquina superior derecha, sin salir del juego. Puedes arrastrar botones, cambiarles el tamaño individual, ajustar sensibilidad X/Y independiente del look-pad, y persistir los cambios.
+- **Auto-fade configurable**: el overlay desaparece tras 7 s sin tocarlo y reaparece al instante con cualquier toque.
+- **Auto-launch al juego** cuando el ROM ya está en la carpeta de la app.
+- Soporte completo para controladores Bluetooth/USB (funcionan a la par del touch).
+- Incluye mejoras recientes del upstream: fix de SIGBUS en ARM 32-bit, fix de wrap vertical de cámara, separación de sensibilidad crosshair/cámara, acción Recenter Camera, UI Accept/Cancel swap.
 
-**The following platforms are officially supported and tested:**
-* Windows 7+: i686, x86_64
-* Linux: i686, x86_64
-* MacOS: x86_64 (OS 10.9+), arm64 (OS 11.0+)
-* Nintendo Switch: arm64
-* Android: arm64-v8a, armeabi-v7a, x86_64, x86
+## Requisitos
 
-## Download
+- **Android 5.0 (Lollipop, API 21)** o superior.
+- GPU con **OpenGL ES 3.0**.
+- ~20 MB libres para el APK + espacio para el ROM (~32 MB).
+- Una copia legal del ROM de Perfect Dark en formato `.z64`:
+  - `pd.ntsc-final.z64` — **versión recomendada** (NTSC-U v1.1, MD5 `e03b088b6ac9e0080440efed07c1e40f`).
+  - NTSC-U v1.0 también se acepta con advertencia.
 
-Latest [automatic builds](https://github.com/fgsfdsfgs/perfect_dark/releases/tag/ci-dev-build) for supported platforms:
-* [x86_64-windows](https://github.com/fgsfdsfgs/perfect_dark/releases/download/ci-dev-build/pd-x86_64-windows.zip)
-* [i686-windows](https://github.com/fgsfdsfgs/perfect_dark/releases/download/ci-dev-build/pd-i686-windows.zip)
-* [x86_64-linux](https://github.com/fgsfdsfgs/perfect_dark/releases/download/ci-dev-build/pd-x86_64-linux.tar.gz)
-* [i686-linux](https://github.com/fgsfdsfgs/perfect_dark/releases/download/ci-dev-build/pd-i686-linux.tar.gz)
-* [arm64-nswitch](https://github.com/fgsfdsfgs/perfect_dark/releases/download/ci-dev-build/pd-arm64-nswitch.zip)
+## Cómo instalar y jugar
 
-If you are looking for netplay builds (the `port-net` branch), see [this link](https://github.com/fgsfdsfgs/perfect_dark/blob/port-net/README.md#download).
+1. Descarga el APK más reciente de [Releases](https://github.com/mgrz18/perfect_dark/releases).
+2. Instálalo en tu teléfono Android (habilita "Instalar apps desconocidas" para tu gestor de archivos o navegador si Android te lo pide).
+3. Abre la app. La primera vez te mostrará el launcher pidiendo el ROM.
+4. Toca **Select ROM** y elige tu archivo `.z64`. Se copia a `Android/data/com.perfectdark.port/files/data/pd.ntsc-final.z64` y se verifica el hash MD5.
+5. Si el hash coincide, la app arranca directo al juego. En las siguientes veces saltará el launcher automáticamente.
 
-## Running
+## Controles táctiles
 
-You must already have a Perfect Dark ROM to run the game, as specified above.  
+### Disposición por defecto
 
-This assumes that you're using an x86_64 build. If you aren't, replace `x86_64` below with your arch (e.g. `i686`).
+| Zona / botón | Acción |
+|---|---|
+| Mitad izquierda de la pantalla | **Movimiento** (stick flotante, se ancla donde pones el dedo) |
+| Mitad derecha de la pantalla | **Cámara** (drag-to-look, tipo CoD Mobile / Quake Mobile) |
+| FIRE | Disparo principal (N64: Z) |
+| AIM | Apuntar (N64: R) |
+| USE | Usar / interactuar |
+| RELOAD | Recargar |
+| ALT | Disparo alternativo |
+| ← / → | Arma anterior / siguiente |
+| WPN | Menú radial de armas |
+| CRC | Cambiar crouch |
+| ≡ | START / pausa |
+| ✕ | Cancelar / back |
 
-1. Create a directory named `data` next to `pd.x86_64` if it's not there.
-2. Put your Perfect Dark NTSC ROM named `pd.ntsc-final.z64` into it.
-3. Run the `pd.x86_64` executable.
+### Editor de layout en vivo
 
-If you want to use a PAL or JPN ROM instead, put them into the `data` directory and run the appropriate executable:
-* PAL: ROM name `pd.pal-final.z64`, executable name `pd.pal.x86_64`.
-* JPN: ROM name `pd.jpn-final.z64`, executable name `pd.jpn.x86_64`.
+Pulsa el pill **`EDIT`** en la esquina superior derecha para entrar al modo edición:
 
-Optionally, you can also put your Perfect Dark for GameBoy Color ROM named `pd.gbc` in the `data` directory if you want to emulate having the Nintendo 64's Transfer Pak and unlock some cheats automatically.
+- Toca cualquier botón para seleccionarlo → aparece una barrita `−  r=0.055  +` para ajustar su tamaño individual.
+- Arrastra cualquier botón para moverlo. Los pads de movimiento y cámara son invisibles y no se editan.
+- Barra superior:
+  - **SAVE** / **RESET** / **CANCEL** en la primera fila.
+  - **FADE: ON/OFF** para activar o desactivar el auto-fade del overlay.
+  - **X ±** / **Y ±** para ajustar sensibilidad de cámara por eje (rango 0.05 – 5.0).
+  - Pill **`▲`** para colapsar la barra y liberar la parte superior si estás alineando botones ahí.
 
-Optionally, you can move the data folder to `~/.local/share/perfectdark` on Linux or `~/Library/Application Support/perfectdark` on MacOS.
+Los cambios quedan guardados al dar SAVE.
 
-Additional information can be found in the [wiki](https://github.com/fgsfdsfgs/perfect_dark/wiki).
+## Créditos
 
-A GPU supporting OpenGL 3.0/ES3.0 or above is required to run the port.
+Este port se sostiene sobre el trabajo de muchas personas. Los créditos correctos son:
 
-### Installing the Nintendo Switch version
+- **Equipo original del decomp** — [`n64decomp/perfect_dark`](https://github.com/n64decomp/perfect_dark): la ingeniería inversa completa del juego desde la ROM de N64. Sin ese decomp ninguno de los ports existe.
+- **[`fgsfdsfgs`](https://github.com/fgsfdsfgs)** y colaboradores — [`fgsfdsfgs/perfect_dark`](https://github.com/fgsfdsfgs/perfect_dark): el port a plataformas modernas (Windows, Linux, macOS, Switch). El motor que corre en Android es esencialmente su trabajo.
+- **[`izzy2lost`](https://github.com/izzy2lost)** — [`izzy2lost/perfect_dark`](https://github.com/izzy2lost/perfect_dark): andamiaje inicial de Android (Gradle project, SDL2 Java wrappers, LauncherActivity con picker de ROM vía SAF). Esta rama se basa en su fork.
+- **[AL2009man](https://github.com/AL2009man)**, **[joshuarwood](https://github.com/joshuarwood)**, **[rafccq](https://github.com/rafccq)**, **[TartanSpartan](https://github.com/TartanSpartan)**, **[emileb](https://github.com/emileb)** — PRs cherry-pickeados para fixes y mejoras relevantes (ver el historial de commits).
+- **Rare / Nintendo** — creadores originales de Perfect Dark (2000).
 
-The Nintendo Switch build ZIP comes with all 3 regions in different folders: `perfectdark`, `perfectdark_pal` and `perfectdark_jpn`.
+Los controles táctiles nativos, el editor de layout en vivo, el look-pad con inyección de mouse delta, el auto-fade configurable, y la integración general de este branch fueron construidos con la asistencia de **[Claude](https://claude.com/)** de Anthropic. No habría sido posible hacer todo esto tan rápido sin ese apoyo.
 
-Take the folder for the region you want and put it into the `/switch` folder on your SD card, then put your ROM into the `data` folder inside of the folder you extracted as described above.
+## Soporte / problemas
 
-## Controls
+Si encuentras un bug, tienes una petición, o simplemente quieres comentar algo:
 
-1964GEPD-style and Xbox-style bindings are implemented.
+- Abre un **[Issue](https://github.com/mgrz18/perfect_dark/issues)** explicando:
+  - Qué hiciste exactamente.
+  - Qué esperabas vs. qué pasó.
+  - Modelo de teléfono + versión de Android.
+  - Región de tu ROM (NTSC v1.1 recomendada).
+  - Logs de `adb logcat` si puedes capturarlos.
 
-N64 pad buttons X and Y (or `X_BUTTON`, `Y_BUTTON` in the code) refer to the reserved buttons `0x40` and `0x80`, which are also leveraged by 1964GEPD.
+También se aceptan Pull Requests a la rama `touch-controls`.
 
-Support for one controller, two-stick configurations are enabled for 1.2.
+## Licencia
 
-Note that the mouse only controls player 1.
+Mismo esquema que [`fgsfdsfgs/perfect_dark`](https://github.com/fgsfdsfgs/perfect_dark). El código decompilado y el port son reingeniería a partir de una copia ejecutable; **ni este repo ni sus binarios distribuyen assets, ROMs, audio ni texturas del juego original**, y el usuario debe aportar su propia copia legal del ROM.
 
-Controls can be rebound in `pd.ini`. Default control scheme is as follows:
+## Estado conocido
 
-| Action           | Keyboard and mouse     | Xbox pad                 | N64 pad                   |
-| -                | -                      | -                        | -                         |
-| Fire / Accept    | LMB/Space              | RT                       | Z Trigger                 |
-| Aim mode         | RMB/Z                  | LT                       | R Trigger                 |
-| Use / Cancel     | E                      | N/A                      | B                         |
-| Use / Accept     | N/A                    | A                        | A                         |
-| Crouch cycle     | N/A                    | LS Click                 | `0x80000000` (Extra)      |
-| Half-Crouch      | Shift                  | N/A                      | `0x40000000` (Extra)      |
-| Full-Crouch      | Control                | N/A                      | `0x20000000` (Extra)      |
-| Reload           | R                      | X                        | X `(0x40)`                |
-| Previous weapon  | Mousewheel forward     | B                        | D-Left                    |
-| Next weapon      | Mousewheel back        | Y                        | Y `(0x80)`                |
-| Radial menu      | Q                      | LB                       | D-Down                    |
-| Alt fire mode    | F                      | RB                       | L Trigger                 |
-| Alt-fire oneshot | `F + LMB` or `E + LMB` | `A + RT` or  `RB + RT`   | `A + Z`     or `L + Z`    |
-| Quick-detonate   | `E + Q`   or `E + R`   | `A + B`  or  `A + X`     | `A + D-Left`or `A + X`    |
-| Reset Camera / Crosshair   | C            | RS CLICK                 | N/A                       |
-
-## Building
-
-### Windows
-
-1. Install [MSYS2](https://www.msys2.org).
-2. Open the `MINGW64` prompt if building for x86_64, or the `MINGW32` prompt if building for i686. (**NOTE:** _do not_ use the `MSYS` prompt)
-3. Install dependencies:  
-   `pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 mingw-w64-x86_64-zlib mingw-w64-x86_64-cmake mingw-w64-x86_64-python3 mingw-w64-i686-toolchain mingw-w64-i686-SDL2 mingw-w64-i686-zlib mingw-w64-i686-cmake mingw-w64-i686-python3 make git`
-4. Get the source code:  
-   `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`
-5. Run `cmake -G"Unix Makefiles" -Bbuild .`.
-   * Add ` -DROMID=pal-final` or ` -DROMID=jpn-final` at the end of the command if you want to build a PAL or JPN executable respectively.\
-6. Run `cmake --build build -j4 -- -O`.
-7. The resulting executable will be at `build/pd.x86_64.exe` (or at `build/pd.i686.exe` if building for i686).
-8. If you don't know where you downloaded the source to, you can run `explorer .` to open the current directory.
-
-### Linux
-
-1. Ensure you have gcc, g++ (version 10.0+), make, cmake, git, python3 and SDL2 (version 2.0.12+), libGL and ZLib installed on your system.
-   * If you wish to crosscompile, you will also need to have libraries and compilers for the target platform installed, e.g. `gcc-multilib` and `g++-multilib` for x86_64 -> i686 crosscompilation.
-2. Get the source code:  
-   `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`
-3. Run the following command:
-   * ```cmake -G"Unix Makefiles" -Bbuild .```
-   * Add ` -DROMID=pal-final` or ` -DROMID=jpn-final` at the end of the command if you want to build a PAL or JPN executable respectively.
-   * Add ` -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32` at the end of the command if you want to crosscompile from x86_64 to x86.
-4. Run `cmake --build build -j4`.
-5. The resulting executable will be at `build/pd.<arch>` (for example `build/pd.x86_64`).
-
-### MacOS
-
-1. Set up Homebrew.
-2. Install dependencies:
-   * Execute command: `brew install cmake gcc python3 zlib git`
-3. Install SDL2:
-   * Execute commands:
-     ```
-     wget http://libsdl.org/release/SDL2-2.30.9.dmg -O SDL2.dmg
-     hdiutil mount SDL2.dmg
-     sudo cp -vr /Volumes/SDL2/SDL2.framework /Library/Frameworks
-     hdiutil detach /Volumes/SDL2
-     ```
-   * This installs SDL2 system-wide and this is how the automatic builds are done. The game will also look for it in the executable path, so you could
-     download it locally instead.
-4. Get the source code:  
-   `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`
-5. Configure:
-   * Execute command: `cmake -G"Unix Makefiles" -Bbuild -DCMAKE_OSX_ARCHITECTURES=x86_64 .`
-   * Replace `x86_64` with `arm64` if building for an ARM64 Mac.
-   * Add ` -DROMID=pal-final` or ` -DROMID=jpn-final` at the end of the command if you want to build a PAL or JPN executable respectively.
-6. Build:
-   * Execute command: `cmake --build build --target pd -j4 --clean-first`
-7. The resulting executable will be at `build/pd.<arch>` (for example `build/pd.x86_64`).
-   * You might need to execute `chmod +x build/pd.x86-64` before you can run it.
-
-### Nintendo Switch
-
-1. Set up the [devkitA64 environment](https://devkitpro.org/wiki/Getting_Started).
-   * On Windows you can do it under MSYS2 or WSL, usually MSYS2 is recommended.
-   * If using MSYS2, make sure to use the **MSYS2** shell, **not** MINGW32 or MINGW64.
-2. Install host dependencies:
-   * On MSYS2: execute command `pacman -Syuu && pacman -S git make cmake python3`
-   * On Linux: use your package manager as normal to install the above dependencies.
-3. Install Switch toolchain and dependencies:
-   * Execute commands:
-     ```
-     dkp-pacman -Syuu
-     dkp-pacman -S devkitA64 libnx switch-zlib switch-sdl2 switch-cmake dkp-toolchain-vars
-     ```
-   * If in MSYS2 or `dkp-pacman` doesn't work, replace it with just `pacman`.
-4. Get the source code:  
-   `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`
-5. Ensure devkitA64 environment variables are set:
-   * Execute command: `source /opt/devkitpro/switchvars.sh`
-   * If your `$DEVKITPRO` path is different, substitute that instead or set the variables manually.
-6. Configure:
-   * Execute command: `aarch64-none-elf-cmake -G"Unix Makefiles" -Bbuild .`
-   * Add ` -DROMID=pal-final` or ` -DROMID=jpn-final` at the end of the command if you want to build a PAL or JPN executable respectively.
-7. Build:
-   * Execute command: `make -C build -j4`
-8. The resulting executable will be at `build/pd.arm64.nro`.
-
-### Notes
-
-Alternate compilers or toolchains can be specified by passing `-DCMAKE_TOOLCHAIN_FILE=whatever` as normal. The port does not build with Visual Studio.
-
-You will need to provide a `jpn-final` or `pal-final` ROM to run executables built for those regions, named `pd.jpn-final.z64` or `pd.pal-final.z64`.
-
-It might be possible to build and run the game on platforms that are not specified in the supported platforms list (e.g. Linux on armv7), but this has not been tested.
-
-## Credits
-
-* the original [decompilation project](https://github.com/n64decomp/perfect_dark) authors;
-* Ryan Dwyer for the above, additional help, and `pd-extract`;
-* doomhack for the only other publicly available [PD porting effort](https://github.com/doomhack/perfect_dark) I could find;
-* [sm64-port](https://github.com/sm64-port/sm64-port) authors for the audio mixer and some other changes;
-* [Ship of Harkinian team](https://github.com/Kenix3/libultraship/tree/main/src/fast), Emill and MaikelChan for the libultraship version of fast3d that this port uses;
-* lieff for [minimp3](https://github.com/lieff/minimp3);
-* Mouse Injector and 1964GEPD authors for some of the 60FPS- and mouselook-related fixes;
-* Raf for the 64-bit port;
-* NicNamSam for the icon;
-* everyone who has submitted pull requests and issues to this repository and tested the port;
-* probably more I'm forgetting.
+- Juego funciona completo en single-player y multiplayer en split-screen local.
+- Netplay multijugador por red **no** está incluido (existe en la rama `port-net` del upstream pero aún es experimental y no se ha integrado aquí).
+- En teléfonos low-end con armeabi-v7a puede haber problemas de rendimiento puntuales.
+- Si el overlay táctil se ve mal alineado o prefieres los defaults, resetéalo desde el editor (`EDIT` → `RESET` → `SAVE`).
