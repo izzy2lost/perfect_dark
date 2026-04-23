@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
@@ -42,6 +43,16 @@ public class TouchOverlayView extends View {
     private static final float BUTTON_SIZE_MIN = 0.03f;
     private static final float BUTTON_SIZE_MAX = 0.15f;
     private static final float BUTTON_SIZE_STEP = 0.005f;
+
+    // Idle fade: after a period of no touches the whole overlay (buttons,
+    // floating EDIT pill, stick feedback) smoothly dims to a low alpha so
+    // it doesn't obscure gameplay. Any touch snaps it back to full alpha.
+    // Bypassed while edit mode is active.
+    private static final long IDLE_BEFORE_FADE_MS = 3000L;
+    private static final long FADE_DURATION_MS = 700L;
+    private static final float IDLE_ALPHA = 0.12f;
+    private long lastInteractionTimeMs = SystemClock.uptimeMillis();
+    private final Runnable fadeKicker = this::invalidate;
 
     // Snapshot taken when entering edit mode; restored if the user cancels.
     private @Nullable TouchLayout editSnapshot;
@@ -83,6 +94,7 @@ public class TouchOverlayView extends View {
     private final RectF btnSensYUpRect = new RectF();
     private final RectF sensYLabelRect = new RectF();
     private final RectF btnCollapseRect = new RectF();
+    private final RectF btnFadeToggleRect = new RectF();
     // Per-selected-button resize bar rects.
     private final RectF btnSizeDownRect = new RectF();
     private final RectF btnSizeLabelRect = new RectF();
@@ -244,6 +256,11 @@ public class TouchOverlayView extends View {
         int action = ev.getActionMasked();
         int idx = ev.getActionIndex();
         float x = ev.getX(idx), y = ev.getY(idx);
+
+        // Any interaction resets the idle fade timer.
+        lastInteractionTimeMs = SystemClock.uptimeMillis();
+        removeCallbacks(fadeKicker);
+        postDelayed(fadeKicker, IDLE_BEFORE_FADE_MS);
 
         // --- HUD (always tested first, in both gameplay and edit mode) ---
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
@@ -481,6 +498,11 @@ public class TouchOverlayView extends View {
                 invalidate();
                 return true;
             }
+            if (btnFadeToggleRect.contains(x, y)) {
+                layout.idleFade = !layout.idleFade;
+                invalidate();
+                return true;
+            }
             if (btnSensXDownRect.contains(x, y)) {
                 layout.lookSensX = Math.max(LOOK_SENS_MIN, layout.lookSensX - LOOK_SENS_STEP);
                 invalidate();
@@ -579,6 +601,15 @@ public class TouchOverlayView extends View {
         int w = getWidth(), h = getHeight(), m = minExtent();
         paintLabel.setTextSize(Math.max(16f, m * 0.03f));
 
+        // Apply an optional idle-fade layer alpha to the game controls. Edit
+        // mode and the HUD always draw at full opacity (see below).
+        float fadeFactor = computeOverlayAlpha();
+        int overlayLayer = -1;
+        if (fadeFactor < 0.999f) {
+            overlayLayer = canvas.saveLayerAlpha(0, 0, w, h,
+                    (int) (fadeFactor * 255f));
+        }
+
         for (TouchLayout.Element el : layout.elements) {
             float cx = px(el.cx, w), cy = px(el.cy, h);
             switch (el.kind) {
@@ -623,9 +654,45 @@ public class TouchOverlayView extends View {
             }
         }
 
-        if (internalHudVisible) {
-            drawHud(canvas, w, h, m);
+        if (overlayLayer >= 0) {
+            canvas.restoreToCount(overlayLayer);
         }
+
+        if (internalHudVisible) {
+            // The EDIT pill (when not in edit mode) fades with the rest of
+            // the overlay — wrap it in its own alpha layer.
+            if (!editMode) {
+                int pillLayer = -1;
+                if (fadeFactor < 0.999f) {
+                    pillLayer = canvas.saveLayerAlpha(0, 0, w, h,
+                            (int) (fadeFactor * 255f));
+                }
+                drawHud(canvas, w, h, m);
+                if (pillLayer >= 0) canvas.restoreToCount(pillLayer);
+            } else {
+                drawHud(canvas, w, h, m);
+            }
+        }
+
+        // If we are currently inside the fade-in/out animation window,
+        // schedule another frame so the animation progresses. Once the
+        // alpha has settled (either full or IDLE_ALPHA), we stop repainting.
+        long since = SystemClock.uptimeMillis() - lastInteractionTimeMs;
+        if (layout.idleFade && !editMode
+                && since >= IDLE_BEFORE_FADE_MS
+                && since < IDLE_BEFORE_FADE_MS + FADE_DURATION_MS) {
+            postInvalidateOnAnimation();
+        }
+    }
+
+    /** 1.0 = fully visible, IDLE_ALPHA = fully faded. */
+    private float computeOverlayAlpha() {
+        if (!layout.idleFade || editMode) return 1f;
+        long since = SystemClock.uptimeMillis() - lastInteractionTimeMs;
+        if (since < IDLE_BEFORE_FADE_MS) return 1f;
+        if (since >= IDLE_BEFORE_FADE_MS + FADE_DURATION_MS) return IDLE_ALPHA;
+        float t = (since - IDLE_BEFORE_FADE_MS) / (float) FADE_DURATION_MS;
+        return 1f + (IDLE_ALPHA - 1f) * t;
     }
 
     private void drawHud(Canvas canvas, int w, int h, int m) {
@@ -647,6 +714,7 @@ public class TouchOverlayView extends View {
                 // Clear other rects so stale positions don't swallow taps.
                 btnSaveRect.setEmpty(); btnResizeRect.setEmpty();
                 btnResetRect.setEmpty(); btnCancelRect.setEmpty();
+                btnFadeToggleRect.setEmpty();
                 btnSensXDownRect.setEmpty(); btnSensXUpRect.setEmpty();
                 sensXLabelRect.setEmpty();
                 btnSensYDownRect.setEmpty(); btnSensYUpRect.setEmpty();
@@ -673,6 +741,8 @@ public class TouchOverlayView extends View {
             x += pillW + gap;
             btnResetRect.set(x, r1y0, x + pillW, r1y1);
             x += pillW + gap;
+            btnFadeToggleRect.set(x, r1y0, x + pillW * 1.3f, r1y1);
+            x += pillW * 1.3f + gap;
             btnCancelRect.set(x, r1y0, x + pillW, r1y1);
             // RESIZE pill removed — per-button resize handles replaced it.
             btnResizeRect.setEmpty();
@@ -697,6 +767,9 @@ public class TouchOverlayView extends View {
 
             drawPill(canvas, btnSaveRect,  0xFF3a8a3a, "SAVE");
             drawPill(canvas, btnResetRect, 0xFF444444, "RESET");
+            drawPill(canvas, btnFadeToggleRect,
+                    layout.idleFade ? 0xFF33688a : 0xFF444444,
+                    layout.idleFade ? "FADE: ON" : "FADE: OFF");
             drawPill(canvas, btnCancelRect, 0xFF8a3a3a, "CANCEL");
 
             drawPill(canvas, btnSensXDownRect, 0xFF444444, "-");

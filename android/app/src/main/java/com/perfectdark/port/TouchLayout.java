@@ -70,6 +70,9 @@ public class TouchLayout {
     public float lookSensX = 0.4f;
     public float lookSensY = 0.4f;
 
+    /** If true, the whole overlay fades out after a few seconds of inactivity. */
+    public boolean idleFade = true;
+
     public static TouchLayout defaults() {
         TouchLayout l = new TouchLayout();
 
@@ -115,6 +118,7 @@ public class TouchLayout {
         }
         e.putFloat("_lookSensX", lookSensX);
         e.putFloat("_lookSensY", lookSensY);
+        e.putBoolean("_idleFade", idleFade);
         e.apply();
     }
 
@@ -133,6 +137,7 @@ public class TouchLayout {
         float legacy = p.getFloat("_lookSens", l.lookSensX);
         l.lookSensX = p.getFloat("_lookSensX", legacy);
         l.lookSensY = p.getFloat("_lookSensY", legacy);
+        l.idleFade  = p.getBoolean("_idleFade", l.idleFade);
         return l;
     }
 
@@ -145,6 +150,7 @@ public class TouchLayout {
         TouchLayout out = new TouchLayout();
         out.lookSensX = lookSensX;
         out.lookSensY = lookSensY;
+        out.idleFade = idleFade;
         for (Element e : elements) {
             Element c = (e.kind == Kind.LOOK_PAD || e.kind == Kind.MOVE_PAD)
                     ? Element.rect(e.id, e.kind, e.label, e.cx, e.cy, e.hw, e.hh)
@@ -161,6 +167,7 @@ public class TouchLayout {
     public void assignFrom(TouchLayout src) {
         lookSensX = src.lookSensX;
         lookSensY = src.lookSensY;
+        idleFade = src.idleFade;
         for (int i = 0; i < elements.size() && i < src.elements.size(); ++i) {
             Element dst = elements.get(i);
             Element s = src.elements.get(i);
