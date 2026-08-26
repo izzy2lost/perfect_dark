@@ -17,13 +17,23 @@
 #include "config.h"
 #include "mod.h"
 #include "system.h"
+#include "console.h"
 #include "utils.h"
+#include "net/net.h"
 
 #ifdef ANDROID
 #include <jni.h>
 #include <android/log.h>
 #include <SDL.h>
 #include <SDL_main.h>
+#endif
+
+// Boot-time tracing. On Android this lands in logcat, which is the only practical
+// way to debug startup there; everywhere else the port's own log covers it.
+#ifdef ANDROID
+#define BOOTLOG(...) __android_log_print(ANDROID_LOG_INFO, "PerfectDark", __VA_ARGS__)
+#else
+#define BOOTLOG(...) do {} while (0)
 #endif
 
 u32 g_OsMemSize = 0;
@@ -77,7 +87,7 @@ static void gameInit(void)
 {
 	osMemSize = g_OsMemSizeMb * 1024 * 1024;
 
-	for (s32 i = 0; i < MAX_PLAYERS; ++i) {
+	for (s32 i = 0; i < MAX_LOCAL_PLAYERS; ++i) {
 		struct extplayerconfig *cfg = g_PlayerExtCfg + i;
 		cfg->fovzoommult = cfg->fovzoom ? cfg->fovy / 60.0f : 1.0f;
 	}
@@ -94,6 +104,7 @@ static void gameInit(void)
 static void cleanup(void)
 {
 	sysLogPrintf(LOG_NOTE, "shutdown");
+	netDisconnect();
 	inputSaveBinds();
 	configSave(CONFIG_PATH);
 	videoShutdown();
@@ -237,45 +248,50 @@ int main(int argc, const char **argv)
 
 	sysInitArgs(argc, argv);
 
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "Starting initialization sequence");
+	BOOTLOG("Starting initialization sequence");
 
 	if (!sysArgCheck("--no-crash-handler")) {
 		crashInit();
 	}
 
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "sysInit starting");
+	conInit();
+	BOOTLOG("sysInit starting");
 	sysInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "fsInit starting");
+	BOOTLOG("fsInit starting");
 	fsInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "configInit starting");
+	BOOTLOG("configInit starting");
 	configInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "SDL2 init starting");
+#ifdef ANDROID
+	// videoInit() brings SDL up on its own, but on Android we want GLES3 requested
+	// before it starts probing contexts. SDL_Init is refcounted, so this is safe.
+	BOOTLOG("SDL2 init starting");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
-		__android_log_print(ANDROID_LOG_ERROR, "PerfectDark", "SDL_Init failed: %s", SDL_GetError());
+		sysLogPrintf(LOG_ERROR, "SDL_Init failed: %s", SDL_GetError());
 		return -1;
 	}
-	
-	// Set OpenGL ES attributes for Android
+
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-	
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "videoInit starting");
+#endif
+
+	BOOTLOG("videoInit starting");
 	videoInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "inputInit starting");
+	BOOTLOG("inputInit starting");
 	inputInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "audioInit starting");
+	BOOTLOG("audioInit starting");
 	audioInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "romdataInit starting");
+	BOOTLOG("romdataInit starting");
 	romdataInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "romdataInit complete");
+	BOOTLOG("romdataInit complete");
+	netInit();
 
 	g_ValidGbcRomFound = romdataCheckGbcRom();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "GBC ROM check complete");
+	BOOTLOG("GBC ROM check complete");
 
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "gameInit starting");
+	BOOTLOG("gameInit starting");
 	gameInit();
-	__android_log_print(ANDROID_LOG_INFO, "PerfectDark", "gameInit complete");
+	BOOTLOG("gameInit complete");
 
 	if (fsGetModDir()) {
 		modConfigLoad(MOD_CONFIG_FNAME);
@@ -300,6 +316,8 @@ int main(int argc, const char **argv)
 
 	g_StageNum = sysArgGetInt("--boot-stage", STAGE_TITLE);
 
+	g_FileAutoSelect = sysArgGetInt("--profile", -1);
+
 	if (g_StageNum == STAGE_TITLE && (sysArgCheck("--skip-intro") || g_SkipIntro)) {
 		// shorthand for --boot-stage 0x26
 		g_StageNum = STAGE_CITRAINING;
@@ -308,11 +326,19 @@ int main(int argc, const char **argv)
 		g_StageNum = STAGE_TITLE;
 	}
 
+	if (g_NetJoinLatch || g_NetHostLatch) {
+		if (g_FileAutoSelect < 0) {
+			// default to profile 0 if going into a net game
+			g_FileAutoSelect = 0;
+		}
+		// skip the intro if going into a net game
+		g_StageNum = STAGE_CITRAINING;
+	}
+
 	if (g_StageNum != STAGE_TITLE) {
 		sysLogPrintf(LOG_NOTE, "boot stage set to 0x%02x", g_StageNum);
 	}
 
-	g_FileAutoSelect = sysArgGetInt("--profile", -1);
 	if (g_FileAutoSelect >= 0) {
 		sysLogPrintf(LOG_NOTE, "player profile set to %d", g_FileAutoSelect);
 	}
@@ -334,7 +360,7 @@ PD_CONSTRUCTOR static void gameConfigInit(void)
 	configRegisterInt("Game.DisableMpDeathMusic", &g_MusicDisableMpDeath, 0, 1);
 	configRegisterInt("Game.GEMuzzleFlashes", &g_BgunGeMuzzleFlashes, 0, 1);
 	configRegisterInt("Game.MaxExplosions", &g_MaxExplosions, 6, 96);
-	for (s32 j = 0; j < MAX_PLAYERS; ++j) {
+	for (s32 j = 0; j < MAX_LOCAL_PLAYERS; ++j) {
 		const s32 i = j + 1;
 		configRegisterFloat(strFmt("Game.Player%d.FovY", i), &g_PlayerExtCfg[j].fovy, 5.f, 175.f);
 		configRegisterInt(strFmt("Game.Player%d.FovAffectsZoom", i), &g_PlayerExtCfg[j].fovzoom, 0, 1);

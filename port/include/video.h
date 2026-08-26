@@ -50,6 +50,8 @@ s32 videoGetMSAA(void);
 
 f32 videoGetAverageFPS(void);
 
+void videoCapFramerate(s32 limit);
+
 void videoSetWindowOffset(s32 x, s32 y);
 void videoSetFullscreen(s32 fs);
 void videoSetFullscreenMode(s32 mode);

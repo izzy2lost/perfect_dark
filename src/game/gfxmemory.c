@@ -57,6 +57,12 @@ u32 g_GfxSizesByPlayerCount[] = {
 	0x00018000 * GFX_SIZE_MULTIPLIER,
 	0x00020000 * GFX_SIZE_MULTIPLIER,
 	0x00028000 * GFX_SIZE_MULTIPLIER,
+#ifndef PLATFORM_N64
+	0x00030000 * GFX_SIZE_MULTIPLIER,
+	0x00038000 * GFX_SIZE_MULTIPLIER,
+	0x00040000 * GFX_SIZE_MULTIPLIER,
+	0x00048000 * GFX_SIZE_MULTIPLIER,
+#endif
 };
 
 u32 g_VtxSizesByPlayerCount[] = {
@@ -64,6 +70,12 @@ u32 g_VtxSizesByPlayerCount[] = {
 	0x00018000,
 	0x00020000,
 	0x00028000,
+#ifndef PLATFORM_N64
+	0x00030000,
+	0x00038000,
+	0x00040000,
+	0x00048000,
+#endif
 };
 
 s32 g_GfxNumSwapsPerBuffer[NUM_GFXTASKS] = {0, 1};
@@ -104,11 +116,21 @@ void gfxReset(void)
 		// ******** Extra Amount required = %dK ber buffer\n
 		// ******** Total of %dK (Double Buffered)\n
 		g_GfxSizesByPlayerCount[PLAYERCOUNT() - 1] = (gfx + gfxtra) * GFX_SIZE_MULTIPLIER;
+#ifndef PLATFORM_N64
+		if (PLAYERCOUNT() > MAX_LOCAL_PLAYERS) {
+			g_GfxSizesByPlayerCount[PLAYERCOUNT() - 1] *= MAX_PLAYERS / MAX_LOCAL_PLAYERS;
+		}
+#endif
 	}
 
 	if (argFindByPrefix(1, "-mvtx")) {
 		// Argument specified mtxvtx_size\n
 		g_VtxSizesByPlayerCount[PLAYERCOUNT() - 1] = strtol(argFindByPrefix(1, "-mvtx"), NULL, 0) * 1024;
+#ifndef PLATFORM_N64
+		if (PLAYERCOUNT() > MAX_LOCAL_PLAYERS) {
+			g_VtxSizesByPlayerCount[PLAYERCOUNT() - 1] *= MAX_PLAYERS / MAX_LOCAL_PLAYERS;
+		}
+#endif
 	}
 
 	// %d Players : Allocating %d bytes for master dl's\n

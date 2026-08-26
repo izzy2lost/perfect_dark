@@ -252,7 +252,7 @@ Gfx *radarRender(Gfx *gdl)
 
 	tconfig = g_TexRadarConfigs;
 	playernum = g_Vars.currentplayernum;
-	playercount = PLAYERCOUNT();
+	playercount = LOCALPLAYERCOUNT();
 
 	if (g_Vars.mplayerisrunning) {
 		if (g_Vars.normmplayerisrunning && (g_MpSetup.options & MPOPTION_NORADAR)) {
@@ -341,7 +341,7 @@ Gfx *radarRender(Gfx *gdl)
 	gDPSetSubpixelOffsetEXT(gdl++, 0, 0);
 	if (!(g_MpSetup.options & MPOPTION_NOPLAYERONRADAR)) {
 #endif
-	for (i = 0; i < playercount; i++) {
+	for (i = 0; i < PLAYERCOUNT(); i++) {
 		if (i != playernum) {
 			if (g_Vars.players[i]->isdead == false
 					&& (g_Vars.players[i]->prop->chr->hidden & CHRHFLAG_CLOAKED) == 0

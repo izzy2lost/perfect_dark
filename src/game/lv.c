@@ -97,6 +97,8 @@
 #include "lib/vi.h"
 #include "types.h"
 #ifndef PLATFORM_N64
+#include "net/net.h"
+#include "net/netmsg.h"
 #include "video.h"
 #endif
 
@@ -322,6 +324,16 @@ void lvReset(s32 stagenum)
 		s32 i;
 		s32 j;
 
+#ifndef PLATFORM_N64
+		if (g_NetMode == NETMODE_SERVER) {
+			// if we're a server, signal to clients that the level is changing
+			netServerStageStart();
+		} else if (g_NetMode == NETMODE_CLIENT) {
+			// if we're a client, now is the time to apply the server's RNG seeds
+			netClientSyncRng();
+		}
+#endif
+
 		tilesReset();
 		bgReset(g_Vars.stagenum);
 		bgBuildTables(g_Vars.stagenum);
@@ -338,9 +350,9 @@ void lvReset(s32 stagenum)
 		}
 
 		if (g_Vars.mplayerisrunning == false) {
-			g_Vars.playerstats[0].mpindex = 4;
-			g_PlayerConfigsArray[4].contpad1 = 0;
-			g_PlayerConfigsArray[4].contpad2 = 1;
+			g_Vars.playerstats[0].mpindex = MAX_PLAYERS;
+			g_PlayerConfigsArray[MAX_PLAYERS].contpad1 = 0;
+			g_PlayerConfigsArray[MAX_PLAYERS].contpad2 = 1;
 		}
 
 		for (i = 0; i != ARRAYCOUNT(g_Vars.playerstats); i++) {
@@ -462,6 +474,12 @@ void lvReset(s32 stagenum)
 	if (IS8MB()) {
 		pheadReset();
 	}
+
+#ifndef PLATFORM_N64
+	if (g_NetMode) {
+		netSyncIdsAllocate();
+	}
+#endif
 
 	modelmgrSetLvResetting(false);
 	var80084018 = 1;
@@ -1125,6 +1143,13 @@ Gfx *lvRender(Gfx *gdl)
 		struct player *player;
 		struct chrdata *chr;
 
+#ifndef PLATFORM_N64
+		if (g_NetMode) {
+			// tick all players, we'll skip the rendering
+			forcesingleplayer = false;
+		}
+#endif
+
 		playercount = forcesingleplayer ? 1 : PLAYERCOUNT();
 
 		gSPClipRatio(gdl++, FRUSTRATIO_2);
@@ -1717,11 +1742,20 @@ Gfx *lvRender(Gfx *gdl)
 				}
 
 				if (g_Vars.currentplayer->dostartnewlife) {
-					playerStartNewLife();
+#ifndef PLATFORM_N64
+					if (g_NetMode != NETMODE_CLIENT)
+#endif
+						playerStartNewLife();
 				}
 			}
 
 			artifactsTick();
+
+#ifndef PLATFORM_N64
+			if ((g_NetMode && i) || i >= MAX_LOCAL_PLAYERS) {
+				gdl = savedgdl;
+			}
+#endif
 
 			if ((g_Vars.coopplayernum >= 0 || g_Vars.antiplayernum >= 0)
 #if VERSION >= VERSION_NTSC_1_0
@@ -2275,6 +2309,9 @@ void lvTick(void)
 
 			if (elapsed < TICKS(g_MpTimeLimit60) && nexttime >= TICKS(g_MpTimeLimit60)) {
 				// Match is ending due to time limit reached
+#ifndef PLATFORM_N64
+				if (g_NetMode != NETMODE_CLIENT)
+#endif
 				mainEndStage();
 			}
 
@@ -2327,6 +2364,12 @@ void lvTick(void)
 					}
 				}
 			}
+
+#ifndef PLATFORM_N64
+			if (g_NetMode == NETMODE_CLIENT) {
+				g_NumReasonsToEndMpMatch = 0;
+			}
+#endif
 
 			if (g_NumReasonsToEndMpMatch > 0 && numdying == 0) {
 				mainEndStage();

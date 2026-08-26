@@ -264,7 +264,7 @@ list(APPEND LIBS "${GL_LIBRARY}")
 # Platform-specific extra libs
 if(NOT EXTRA_LIBRARIES)
   if(WIN32)
-    set(EXTRA_LIBRARIES dbghelp -static-libstdc++)
+    set(EXTRA_LIBRARIES ws2_32 winmm dbghelp -static-libstdc++)
   elseif(NINTENDO_SWITCH)
     set(EXTRA_LIBRARIES stdc++ pthread)
   elseif(ANDROID)

@@ -77,6 +77,10 @@
 #include "textures.h"
 #include "types.h"
 #include "string.h"
+#ifndef PLATFORM_N64
+#include "net/net.h"
+#include "net/netmsg.h"
+#endif
 
 void rng2SetSeed(u32 seed);
 
@@ -154,6 +158,13 @@ bool doorCallLift(struct prop *doorprop, bool allowclose)
 {
 	struct doorobj *door = doorprop->door;
 	bool handled = false;
+
+#ifndef PLATFORM_N64
+	if (g_NetMode == NETMODE_CLIENT) {
+		// don't automatically do anything with lifts
+		return handled;
+	}
+#endif
 
 	if (door->base.hidden & OBJHFLAG_LIFTDOOR) {
 		struct linkliftdoorobj *link = g_LiftDoors;
@@ -5094,6 +5105,11 @@ void liftGoToStop(struct liftobj *lift, s32 stopnum)
 			// Sanity check to make sure lift is actually not moving
 			if (lift->dist == 0 && lift->speed == 0) {
 				lift->levelaim = stopnum;
+#ifndef PLATFORM_N64
+				if (g_NetMode == NETMODE_SERVER) {
+					netmsgSvcPropLiftWrite(&g_NetMsgRel, lift->base.prop);
+				}
+#endif
 				return;
 			}
 		}
@@ -5140,6 +5156,12 @@ void liftGoToStop(struct liftobj *lift, s32 stopnum)
 			lift->speed = -lift->speed;
 			lift->levelaim = stopnum;
 		}
+
+#ifndef PLATFORM_N64
+		if (g_NetMode == NETMODE_SERVER) {
+			netmsgSvcPropLiftWrite(&g_NetMsgRel, lift->base.prop);
+		}
+#endif
 	}
 }
 
@@ -6666,6 +6688,12 @@ s32 projectileTick(struct defaultobj *obj, bool *embedded)
 				}
 
 				if (projectile->speed.f[0] == 0.0f && projectile->speed.f[2] == 0.0f && projectile->unk0dc == 0.0f) {
+#ifndef PLATFORM_N64
+					if (g_NetMode == NETMODE_SERVER) {
+						// sliding object has stopped, sync the final position just in case
+						netmsgSvcPropMoveWrite(&g_NetMsgRel, prop, NULL);
+					}
+#endif
 					objFreeProjectile(obj);
 				}
 
@@ -8126,6 +8154,13 @@ void liftTick(struct prop *prop)
 				stop = (stop + 1) % 4;
 			} while (lift->pads[stop] < 0);
 
+#ifndef PLATFORM_N64
+			if (g_NetMode == NETMODE_CLIENT) {
+				// don't start if we're not the authority
+				return;
+			}
+#endif
+
 			liftGoToStop(lift, stop);
 		}
 	}
@@ -9128,7 +9163,7 @@ void autogunTickShoot(struct prop *autogunprop)
 				// (ie. autogun is a Defense autogun or a thrown laptop)
 				if (g_Vars.normmplayerisrunning
 						|| (targetprop && (targetprop->type == PROPTYPE_CHR))
-						|| (g_Vars.antiplayernum >= 0 && targetprop && targetprop == g_Vars.anti->prop)) {
+						|| (g_Vars.antiplayernum >= 0 && targetprop && PROP_IS_FOR_ANTI_PLAYER(targetprop))) {
 					if (cdExamLos08(&gunpos, gunrooms, &hitpos, CDTYPE_ALL, GEOFLAG_BLOCK_SHOOT) == CDRESULT_COLLISION) {
 #if VERSION >= VERSION_PAL_FINAL
 						cdGetPos(&hitpos, 11480, "prop/propobj.c");
@@ -14217,6 +14252,12 @@ void objBounce(struct defaultobj *obj, struct coord *gundir2d)
 		projectile->speed.z += 3.3333333f * dir.z;
 		projectile->ownerprop = g_Vars.currentplayer->prop;
 		projectile->bouncecount = 1;
+
+#ifndef PLATFORM_N64
+		if (g_NetMode == NETMODE_SERVER) {
+			netmsgSvcPropMoveWrite(&g_NetMsgRel, obj->prop, &rot);
+		}
+#endif
 	}
 }
 
@@ -14294,6 +14335,11 @@ void objApplyMomentum(struct defaultobj *obj, struct coord *speed, f32 rotation,
 				projectile->unk0ec = 0.07852732f;
 				projectile->unk0f0 = 6.6666665f;
 			}
+#ifndef PLATFORM_N64
+			if (g_NetMode == NETMODE_SERVER) {
+				netmsgSvcPropMoveWrite(&g_NetMsgRel, obj->prop, NULL);
+			}
+#endif
 			return;
 		}
 
@@ -14324,6 +14370,12 @@ void objApplyMomentum(struct defaultobj *obj, struct coord *speed, f32 rotation,
 			projectile->unk0ec = 0.07852732f;
 			projectile->unk0f0 = 1.6666666f;
 		}
+
+#ifndef PLATFORM_N64
+		if (g_NetMode == NETMODE_SERVER) {
+			netmsgSvcPropMoveWrite(&g_NetMsgRel, obj->prop, NULL);
+		}
+#endif
 	}
 }
 
@@ -15363,6 +15415,23 @@ void objTakeGunfire(struct defaultobj *obj, f32 damage, struct coord *pos, s32 w
 
 void objDamage(struct defaultobj *obj, f32 damage, struct coord *pos, s32 weaponnum, s32 playernum)
 {
+#ifndef PLATFORM_N64
+	// if we aren't the authority, don't do anything, unless called from netmsg handler
+	if (g_NetMode == NETMODE_CLIENT) {
+		if (damage < 0.f) {
+			// HACK: negative damage means we were called from netmsg.c
+			damage = -damage;
+		} else {
+			return;
+		}
+	} else if (g_NetMode == NETMODE_SERVER) {
+		if (obj->prop && obj->prop->type != PROPTYPE_CHR) {
+			// chr damage is handled by a separate message
+			netmsgSvcPropDamageWrite(&g_NetMsgRel, obj->prop, damage, pos, weaponnum, playernum);
+		}
+	}
+#endif
+
 	// Store the attacker playernum into the object's "hidden" field
 #if VERSION >= VERSION_NTSC_1_0
 	// ...but not for deployed laptop guns in multiplayer, because those bits
@@ -15893,7 +15962,10 @@ void objHit(struct shotdata *shotdata, struct hit *hit)
 		}
 	}
 
-	if (g_Vars.antiplayernum < 0 || g_Vars.currentplayer != g_Vars.anti || (obj->flags2 & OBJFLAG2_IMMUNETOANTI) == 0) {
+	if (g_Vars.antiplayernum < 0
+			|| PLAYER_IS_NOT_ANTI(g_Vars.currentplayer)
+			|| (obj->flags2 & OBJFLAG2_IMMUNETOANTI) == 0) {
+
 		if (hit->hitthing.texturenum != 10000) {
 			f32 damage = gsetGetDamage(&shotdata->gset);
 
@@ -15950,6 +16022,10 @@ void objHit(struct shotdata *shotdata, struct hit *hit)
 				pushdir.y = shotdata->gundir3d.y;
 				pushdir.z = shotdata->gundir3d.z;
 
+#ifndef PLATFORM_N64
+				// don't push anything if we're not the authority
+				if (g_NetMode != NETMODE_CLIENT)
+#endif
 				func0f082e84(obj, &spa4, &pushdir, &spb0, true);
 			} else {
 				bool bounce = false;
@@ -15971,6 +16047,13 @@ void objHit(struct shotdata *shotdata, struct hit *hit)
 				if (obj->flags2 & OBJFLAG2_LINKEDTOSAFE) {
 					bounce = false;
 				}
+
+#ifndef PLATFORM_N64
+				// don't bounce anything if we're not the authority
+				if (g_NetMode == NETMODE_CLIENT) {
+					bounce = false;
+				}
+#endif
 
 				if (bounce) {
 					objBounce(obj, &shotdata->gundir2d);
@@ -16830,7 +16913,7 @@ void ammotypePlayPickupSound(u32 ammotype)
 	case AMMOTYPE_CLOAK:
 	case AMMOTYPE_BOOST:
 	case AMMOTYPE_TOKEN:
-		sndStart(var80095200, SFX_PICKUP_AMMO, NULL, -1, -1, -1, -1, -1);
+		playerSndStart(var80095200, SFX_PICKUP_AMMO, NULL, g_Vars.currentplayernum, -1, -1, -1);
 		break;
 	case AMMOTYPE_REMOTE_MINE:
 	case AMMOTYPE_PROXY_MINE:
@@ -16839,10 +16922,10 @@ void ammotypePlayPickupSound(u32 ammotype)
 	case AMMOTYPE_MICROCAMERA:
 	case AMMOTYPE_PLASTIQUE:
 	case AMMOTYPE_ECM_MINE:
-		sndStart(var80095200, SFX_PICKUP_MINE, NULL, -1, -1, -1, -1, -1);
+		playerSndStart(var80095200, SFX_PICKUP_MINE, NULL, g_Vars.currentplayernum, -1, -1, -1);
 		break;
 	case AMMOTYPE_KNIFE:
-		sndStart(var80095200, SFX_PICKUP_KNIFE, NULL, -1, -1, -1, -1, -1);
+		playerSndStart(var80095200, SFX_PICKUP_KNIFE, NULL, g_Vars.currentplayernum, -1, -1, -1);
 		break;
 	}
 }
@@ -16907,7 +16990,7 @@ void weaponPlayPickupSound(s32 weaponnum)
 		sound = SFX_PICKUP_GUN;
 	}
 
-	sndStart(var80095200, sound, NULL, -1, -1, -1, -1, -1);
+	playerSndStart(var80095200, sound, NULL, g_Vars.currentplayernum, -1, -1, -1);
 }
 
 void ammotypeGetPickupMessage(char *dst, s32 ammotype, s32 qty)
@@ -17220,7 +17303,7 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 	switch (obj->type) {
 	case OBJTYPE_KEY:
 		if (g_Vars.in_cutscene == false) {
-			sndStart(var80095200, SFX_PICKUP_KEYCARD, NULL, -1, -1, -1, -1, -1);
+			playerSndStart(var80095200, SFX_PICKUP_KEYCARD, NULL, g_Vars.currentplayernum, -1, -1, -1);
 		}
 
 		if (showhudmsg) {
@@ -17260,7 +17343,7 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 			}
 
 			if (g_Vars.in_cutscene == false) {
-				sndStart(var80095200, SFX_PICKUP_AMMO, NULL, -1, -1, -1, -1, -1);
+				playerSndStart(var80095200, SFX_PICKUP_AMMO, NULL, g_Vars.currentplayernum, -1, -1, -1);
 			}
 
 			result = TICKOP_FREE;
@@ -17280,6 +17363,11 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 
 					if (sp64) {
 						weaponPlayPickupSound(weapon->weaponnum);
+#ifndef PLATFORM_N64
+						if (g_NetMode == NETMODE_SERVER && g_Vars.currentplayer->client) {
+							netmsgSvcPropPickupWrite(&g_NetMsgRel, g_Vars.currentplayer->client, prop, sp64);
+						}
+#endif
 					}
 
 					return sp64;
@@ -17290,6 +17378,11 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 
 					if (sp64) {
 						weaponPlayPickupSound(weapon->weaponnum);
+#ifndef PLATFORM_N64
+						if (g_NetMode == NETMODE_SERVER && g_Vars.currentplayer->client) {
+							netmsgSvcPropPickupWrite(&g_NetMsgRel, g_Vars.currentplayer->client, prop, sp64);
+						}
+#endif
 					}
 
 					return sp64;
@@ -17403,7 +17496,7 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 			playerSetShieldFrac(((struct shieldobj *) prop->obj)->amount);
 
 			if (!g_Vars.in_cutscene) {
-				sndStart(var80095200, SFX_PICKUP_SHIELD, NULL, -1, -1, -1, -1, -1);
+				playerSndStart(var80095200, SFX_PICKUP_SHIELD, NULL, g_Vars.currentplayernum, -1, -1, -1);
 			}
 
 			if (showhudmsg) {
@@ -17440,7 +17533,7 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 	case OBJTYPE_TINTEDGLASS:
 	default:
 		if (g_Vars.in_cutscene == false) {
-			sndStart(var80095200, SFX_PICKUP_KEYCARD, NULL, -1, -1, -1, -1, -1);
+			playerSndStart(var80095200, SFX_PICKUP_KEYCARD, NULL, g_Vars.currentplayernum, -1, -1, -1);
 		}
 
 		if (showhudmsg) {
@@ -17456,6 +17549,13 @@ s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 		result = TICKOP_GIVETOPLAYER;
 		break;
 	}
+
+#ifndef PLATFORM_N64
+	if (result != TICKOP_NONE && g_NetMode == NETMODE_SERVER && g_Vars.currentplayer->client) {
+		netmsgSvcPropPickupWrite(&g_NetMsgRel, g_Vars.currentplayer->client, prop, result);
+		netmsgSvcPlayerStatsWrite(&g_NetMsgRel, g_Vars.currentplayer->client);
+	}
+#endif
 
 	if (result == TICKOP_FREE && (obj->hidden & OBJHFLAG_TAGGED) == 0) {
 		objFree(obj, false, obj->hidden2 & OBJH2FLAG_CANREGEN);
@@ -17480,6 +17580,13 @@ s32 objTestForPickup(struct prop *prop)
 	if (obj->hidden & OBJHFLAG_DELETING) {
 		return TICKOP_NONE;
 	}
+
+#ifndef PLATFORM_N64
+	// if we aren't the authority, don't do anything
+	if (g_NetMode == NETMODE_CLIENT) {
+		return TICKOP_NONE;
+	}
+#endif
 
 	if (func0f085194(obj) && obj->type != OBJTYPE_HAT) {
 		if (obj->flags & OBJFLAG_UNCOLLECTABLE) {
@@ -19066,6 +19173,13 @@ void doorsCheckAutomatic(void)
 	s16 *propnumptr;
 	s16 propnums[256];
 
+#ifndef PLATFORM_N64
+	if (g_NetMode == NETMODE_CLIENT) {
+		// don't do anything if we're not the authority
+		return;
+	}
+#endif
+
 	roomGetProps(g_Vars.currentplayer->prop->rooms, propnums, 256);
 	propnumptr = propnums;
 
@@ -19842,6 +19956,11 @@ void doorSetMode(struct doorobj *door, s32 newmode)
 	} else {
 		door->mode = newmode;
 	}
+#ifndef PLATFORM_N64
+	if (g_NetMode == NETMODE_SERVER) {
+		netmsgSvcPropDoorWrite(&g_NetMsgRel, door->base.prop, g_Vars.currentplayer->client);
+	}
+#endif
 }
 
 /**
@@ -20952,7 +21071,7 @@ Gfx *countdownTimerRender(Gfx *gdl)
 		u32 stack;
 		s32 viewright = viGetViewLeft() + (viGetViewWidth() >> 1);
 		s32 y = viGetViewTop() + viGetViewHeight() - 18;
-		s32 playercount = PLAYERCOUNT();
+		s32 playercount = LOCALPLAYERCOUNT();
 		char *fmt = ":\n";
 
 		if (playercount == 2) {
@@ -21207,6 +21326,13 @@ void weaponCreateForPlayerDrop(s32 weaponnum)
 	struct chrdata *chr;
 	u32 stack2;
 
+#ifndef PLATFORM_N64
+	// don't do anything if we're not the authority
+	if (g_NetMode == NETMODE_CLIENT) {
+		return;
+	}
+#endif
+
 	chr = g_Vars.currentplayer->prop->chr;
 	prop = weaponCreateForChr(chr, playermgrGetModelOfWeapon(weaponnum), weaponnum, OBJFLAG_WEAPON_AICANNOTUSE, NULL, NULL);
 
@@ -21217,6 +21343,13 @@ void weaponCreateForPlayerDrop(s32 weaponnum)
 		if (weaponnum == WEAPON_BRIEFCASE2) {
 			scenarioHandleDroppedToken(chr, prop);
 		}
+
+#ifndef PLATFORM_N64
+		if (g_NetMode == NETMODE_SERVER) {
+			netmsgSvcPropSpawnWrite(&g_NetMsgRel, prop);
+			netmsgSvcPropMoveWrite(&g_NetMsgRel, prop, NULL);
+		}
+#endif
 	}
 }
 

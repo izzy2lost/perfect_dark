@@ -24,6 +24,7 @@
 #include "types.h"
 #ifndef PLATFORM_N64
 #include "input.h"
+#include "console.h"
 #define MENU_KEYBOARD_ROWS 6
 #else
 #define MENU_KEYBOARD_ROWS 5
@@ -1600,15 +1601,17 @@ bool menuitemKeyboardTick(struct menuitem *item, struct menuinputs *inputs, u32 
 				}
 			} else if (kb->row == 5) {
 #ifndef PLATFORM_N64
-				if (g_MenuKeyboardPlayer == -1) {
-					g_MenuKeyboardPlayer = g_MpPlayerNum;
-					inputClearLastTextChar();
-					inputStartTextInput();
-					menuPlaySound(MENUSOUND_SELECT);
-				} else {
-					g_MenuKeyboardPlayer = -1;
-					inputStopTextInput();
-					menuPlaySound(MENUSOUND_KEYBOARDCANCEL);
+				if (!conIsOpen()) {
+					if (g_MenuKeyboardPlayer == -1) {
+						g_MenuKeyboardPlayer = g_MpPlayerNum;
+						inputClearLastTextChar();
+						inputStartTextInput();
+						menuPlaySound(MENUSOUND_SELECT);
+					} else {
+						g_MenuKeyboardPlayer = -1;
+						inputStopTextInput();
+						menuPlaySound(MENUSOUND_KEYBOARDCANCEL);
+					}
 				}
 #endif
 			} else {
@@ -4368,7 +4371,7 @@ Gfx *menuitemControllerRenderText(Gfx *gdl, s32 curmode, struct menurendercontex
 			// during development the second player in the 2.x styles had to
 			// choose their control style separately to player 1, in which case
 			// there would have been 2.5, 2.6, 2.7 and 2.8 for player 2.
-			if (curmode > CONTROLMODE_24 && curmode != CONTROLMODE_PC) {
+			if (curmode > CONTROLMODE_24 && curmode < CONTROLMODE_PC) {
 				if (textnum == menuitemControllerGetButtonAction(prevmode + 4, i)) {
 					colour = labelcolour;
 				}
@@ -4453,7 +4456,7 @@ Gfx *menuitemControllerRender(Gfx *gdl, struct menurendercontext *context)
 			data->prevmode = -1;
 		}
 	} else {
-		if (g_Menus[g_MpPlayerNum].main.controlmode >= CONTROLMODE_21 && g_Menus[g_MpPlayerNum].main.controlmode != CONTROLMODE_PC) {
+		if (g_Menus[g_MpPlayerNum].main.controlmode >= CONTROLMODE_21 && g_Menus[g_MpPlayerNum].main.controlmode < CONTROLMODE_PC) {
 			data->controlgroup = 1;
 			data->contfadetimer = 0;
 			data->prevmode = -1;
