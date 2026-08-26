@@ -17,6 +17,9 @@ include(TargetArch)
 include(FindPkgConfig)
 include(AssetUtils)
 
+# used to generate the asset headers
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 20)

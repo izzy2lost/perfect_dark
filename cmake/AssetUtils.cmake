@@ -15,20 +15,14 @@ macro(generate_asset_headers jsonpath execcmd extraarg headerlist)
     unset(HEADERNAME)
     string(REPLACE ".json" ".h" HEADERNAME ${JSON})
     string(REPLACE "${CMAKE_SOURCE_DIR}/${ASSET_DIR}" "${CMAKE_BINARY_DIR}/${GENERATED_DIR}" HEADERNAME ${HEADERNAME})
-    if(WIN32 OR ANDROID)
-      # On Windows and Android, run Python scripts with python
-      add_custom_command(
-        OUTPUT  ${HEADERNAME}
-        DEPENDS ${JSON}
-        COMMAND python ${execcmd} ${JSON} ${extraarg} --headers-only --romid=${ROMID}
-      )
-    else()
-      add_custom_command(
-        OUTPUT  ${HEADERNAME}
-        DEPENDS ${JSON}
-        COMMAND ${execcmd} ${JSON} ${extraarg} --headers-only --romid=${ROMID}
-      )
-    endif()
+    # Always go through the interpreter CMake found rather than relying on the scripts'
+    # shebang (no use on Windows) or on a `python` alias existing (many distros only ship
+    # `python3`, which used to break the Android build).
+    add_custom_command(
+      OUTPUT  ${HEADERNAME}
+      DEPENDS ${JSON}
+      COMMAND ${Python3_EXECUTABLE} ${execcmd} ${JSON} ${extraarg} --headers-only --romid=${ROMID}
+    )
     list(APPEND ${headerlist} "${HEADERNAME}")
   endforeach()
 

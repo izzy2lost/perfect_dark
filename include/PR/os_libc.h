@@ -88,7 +88,11 @@ extern "C" {
 
 /* byte string operations */
 
-#ifndef PLATFORM_OSX
+#if defined(ANDROID)
+/* bionic declares these as overloadable for _FORTIFY_SOURCE, which a plain re-declaration
+   here would clash with, so take them from the real header instead. */
+#include <strings.h>
+#elif !defined(PLATFORM_OSX)
 extern void     bcopy(const void *, void *, size_t);
 extern int      bcmp(const void *, const void *, size_t);
 extern void     bzero(void *, size_t);
