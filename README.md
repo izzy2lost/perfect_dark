@@ -51,7 +51,7 @@ There are minor graphics- and gameplay-related issues, and possibly occasional c
 * Linux: i686, x86_64
 * MacOS: x86_64 (OS 10.9+), arm64 (OS 11.0+)
 * Nintendo Switch: arm64
-* Android 11+ (API 30): arm64-v8a, armeabi-v7a, x86_64
+* Android 5.0+ (API 21): arm64-v8a, armeabi-v7a, x86_64, x86
 
 ## Download
 
@@ -240,7 +240,7 @@ Controls can be rebound in `pd.ini`. Default control scheme is as follows:
 ### Android
 
 1. Install Android Studio, or just the Android SDK command line tools.
-2. Using the SDK manager, install: SDK Platform 36, Build Tools 36.x, NDK 27.2.12479018 and
+2. Using the SDK manager, install: SDK Platform 36, Build Tools 36.x, NDK 30.0.15729638 and
    CMake 3.22.1.
 3. Get the source code:
    `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`

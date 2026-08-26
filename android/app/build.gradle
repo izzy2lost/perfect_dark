@@ -15,27 +15,27 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace 'com.perfectdark.port'
     compileSdk 36
-    ndkVersion '27.2.12479018'
+    ndkVersion '30.0.15729638'
 
     defaultConfig {
         applicationId "com.perfectdark.port"
-        minSdk 30
+        minSdk 21
         targetSdk 36
         versionCode 2
         versionName "1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        // 32-bit x86 has no devices left at minSdk 30, so it is not worth the build time
+        // every one of these is supported down to API 21 by NDK r30 (see its meta/abis.json)
         ndk {
-            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'
         }
 
         externalNativeBuild {
             cmake {
                 cppFlags "-std=c++20"
                 arguments "-DANDROID_STL=c++_shared",
-                         "-DANDROID_PLATFORM=android-30",
+                         "-DANDROID_PLATFORM=android-21",
                          "-DTARGET_OS=android"
             }
         }
@@ -114,7 +114,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
-    implementation 'androidx.recyclerview:recyclerview:1.4.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
