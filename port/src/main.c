@@ -23,6 +23,7 @@
 
 #ifdef ANDROID
 #include <jni.h>
+#include <unistd.h> // chdir
 #include <android/log.h>
 #include <SDL.h>
 #include <SDL_main.h>
@@ -138,15 +139,6 @@ Java_com_perfectdark_port_MainActivity_nativeInit(JNIEnv* env, jobject thiz, jst
 }
 
 JNIEXPORT void JNICALL
-Java_com_perfectdark_port_MainActivity_nativeStartGame(JNIEnv* env, jobject thiz) {
-    __android_log_print(ANDROID_LOG_INFO, "PerfectDark", "nativeStartGame called");
-    if (g_initialized) {
-        char* argv[] = {"pd", NULL};
-        pd_main(1, (const char**)argv);
-    }
-}
-
-JNIEXPORT void JNICALL
 Java_com_perfectdark_port_MainActivity_nativeDestroy(JNIEnv* env, jobject thiz) {
     // Cleanup when activity is destroyed
     g_initialized = 0;
@@ -192,51 +184,6 @@ const char* sysGetDataPath(void) {
         sysLogPrintf(LOG_NOTE, "Using default Android data path: %s", g_data_path);
     }
     return g_data_path;
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeSurfaceCreated(JNIEnv* env, jobject thiz) {
-    // OpenGL surface created - SDL2 will handle this
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeSurfaceChanged(JNIEnv* env, jobject thiz, jint width, jint height) {
-    // Surface size changed - SDL2 will handle this
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeDrawFrame(JNIEnv* env, jobject thiz) {
-    // Frame drawing - SDL2 will handle this
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeKeyDown(JNIEnv* env, jobject thiz, jint keyCode) {
-    // Key down event
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeKeyUp(JNIEnv* env, jobject thiz, jint keyCode) {
-    // Key up event
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_GameView_nativeTouchEvent(JNIEnv* env, jobject thiz, jint action, jfloat x, jfloat y, jint pointerId) {
-    // Touch event
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_TouchControls_nativeStickInput(JNIEnv* env, jobject thiz, jint stick, jfloat x, jfloat y) {
-    // Stick input - could be used for game input later
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_TouchControls_nativeButtonDown(JNIEnv* env, jobject thiz, jint button) {
-    // Button down - could be used for game input later
-}
-
-JNIEXPORT void JNICALL
-Java_com_perfectdark_port_TouchControls_nativeButtonUp(JNIEnv* env, jobject thiz, jint button) {
-    // Button up - could be used for game input later
 }
 
 int pd_main(int argc, const char **argv)

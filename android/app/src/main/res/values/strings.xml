@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Perfect Dark</string>
+
+    <string name="play">Play</string>
+    <string name="select_rom">Select ROM</string>
+    <string name="rom_missing">ROM not found. Select your Perfect Dark NTSC (.z64) ROM to continue.</string>
+
+    <string name="mods">Mods</string>
+    <string name="mods_hint">Import a mod as a .zip. The selected mod is layered over the ROM\'s files when the game starts.</string>
+    <string name="import_mod">Import .zip</string>
+    <string name="delete_mod">Delete selected</string>
+    <string name="no_mod">None (unmodified game)</string>
+
+    <string name="onscreen_controls">On-screen controls</string>
+    <string name="controls_hint">In game, tap ◎ (top left) to hide or show the controls. Hold ◎ to rearrange them: drag to move, pinch to resize, Back when done. The overlay hides itself automatically while a physical controller is connected.</string>
+    <string name="opacity">Opacity</string>
+    <string name="look_sensitivity">Look sensitivity</string>
+    <string name="reset_layout">Reset control layout</string>
+
+    <string name="netplay">Netplay</string>
+    <string name="netplay_hint">Choose Network Game from the main menu to host or join. Everyone must run the same ROM and the same mod. Hosting needs the server port (27100 by default) reachable — on mobile data that usually will not work, so host over Wi-Fi or have a friend host. Tap ~ in game to open the console for chat.</string>
 </resources>

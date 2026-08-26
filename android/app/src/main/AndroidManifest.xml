@@ -2,8 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- No legacy external storage permissions needed; app uses SAF and app-scoped storage -->
-    
+    <!-- Netplay: enet opens UDP sockets to the host or listens for clients. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ROM and mods live in app-scoped storage reached through SAF, so no storage permissions. -->
+
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
@@ -19,10 +23,10 @@
         android:theme="@style/Theme.PerfectDark"
         tools:targetApi="31">
 
-        <!-- SDL orientation hint like Starship uses -->
+        <!-- SDL orientation hint -->
         <meta-data android:name="SDL_ENV.SDL_IOS_ORIENTATIONS" android:value="LandscapeLeft LandscapeRight"/>
-        
-        <!-- LauncherActivity handles ROM selection/copy before starting SDL -->
+
+        <!-- LauncherActivity handles ROM selection, mods and control settings before starting SDL -->
         <activity
             android:name=".LauncherActivity"
             android:exported="true"
@@ -35,11 +39,16 @@
             </intent-filter>
         </activity>
 
-        <!-- MainActivity (SDLActivity) runs the game after ROM is present -->
+        <!--
+            MainActivity (SDLActivity) runs the game.
+            SDL routes the Back key through the legacy onBackPressed() path, and the touch
+            layout editor closes on Back, so predictive back stays off here.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
             android:screenOrientation="landscape"
+            android:enableOnBackInvokedCallback="false"
             android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:theme="@style/Theme.PerfectDark.Fullscreen"/>
     </application>

@@ -39,6 +39,7 @@ There are minor graphics- and gameplay-related issues, and possibly occasional c
 * 60 FPS support, including fixes for some framerate-related issues;
 * fixes for a couple original bugs and crashes;
 * basic mod support, currently enough to load a few custom levels;
+* on Android: an on-screen controller, mod installation and netplay (see the Android sections below);
 * slightly expanded memory heap size;
 * experimental high framerate support (up to 240 FPS):
   * enable `Uncap Tickrate` in `Extended Video Options` to activate;
@@ -50,7 +51,7 @@ There are minor graphics- and gameplay-related issues, and possibly occasional c
 * Linux: i686, x86_64
 * MacOS: x86_64 (OS 10.9+), arm64 (OS 11.0+)
 * Nintendo Switch: arm64
-* Android: arm64-v8a, armeabi-v7a, x86_64, x86
+* Android 11+ (API 30): arm64-v8a, armeabi-v7a, x86_64
 
 ## Download
 
@@ -85,6 +86,37 @@ Note that users with different ROMs can't play netgames with each other.
 Additional information can be found in the [wiki](https://github.com/fgsfdsfgs/perfect_dark/wiki).
 
 A GPU supporting OpenGL 3.0/ES3.0 or above is required to run the port.
+
+### Android
+
+1. Install the APK and launch it.
+2. Press `Select ROM` and pick your Perfect Dark NTSC `.z64`. It is copied into the app's own
+   storage at `Android/data/com.perfectdark.port/files/data/pd.ntsc-final.z64`, so no storage
+   permissions are needed.
+3. Press `Play`.
+
+**On-screen controls.** They appear automatically and are hidden while a physical controller is
+connected. In game:
+* tap the `◎` button in the top left to hide or show the overlay;
+* **hold** `◎` to rearrange it -- drag a control to move it, pinch it to resize it, press Back
+  when you are done. The layout is remembered per device;
+* opacity and look sensitivity are on the launcher screen, along with `Reset control layout`.
+
+The default layout maps the N64 pad as follows: `Z` fire, `R` aim, `A` use/accept, `B` use/cancel,
+`X` reload, `Y` next weapon, `<` previous weapon, `L` alt-fire mode, `Q` radial menu, `CR` crouch
+cycle, `ST` start, `~` console. The left stick moves; dragging anywhere on the free space on the
+right looks around.
+
+**Mods.** Put a mod in a `.zip` and press `Import .zip` on the launcher screen. It is unpacked to
+`Android/data/com.perfectdark.port/files/mods/<name>/` and the selected mod is passed to the game
+as `--moddir`, which overlays it on top of the ROM's files. Select `None` to play unmodified.
+Mods can also be copied into that folder by hand.
+
+**Netplay.** Choose `Network Game` from the main menu; see the netplay section at the top of this
+file for how hosting and joining work. Everyone must be on the same ROM and the same mod. Hosting
+requires the server port (`27100` by default) to be reachable, which usually rules out mobile data,
+so host over Wi-Fi or let someone else host. Tap `~` to open the console for chat -- the on-screen
+keyboard comes up on its own when the game asks for text.
 
 ### Installing the Nintendo Switch version
 
@@ -204,6 +236,24 @@ Controls can be rebound in `pd.ini`. Default control scheme is as follows:
 7. Build:
    * Execute command: `make -C build -j4`
 8. The resulting executable will be at `build/pd.arm64.nro`.
+
+### Android
+
+1. Install Android Studio, or just the Android SDK command line tools.
+2. Using the SDK manager, install: SDK Platform 36, Build Tools 36.x, NDK 27.2.12479018 and
+   CMake 3.22.1.
+3. Get the source code:
+   `git clone --recursive https://github.com/fgsfdsfgs/perfect_dark.git && cd perfect_dark`
+4. Point the build at your SDK, either by exporting `ANDROID_HOME` or by writing
+   `sdk.dir=/path/to/Android/Sdk` into `android/local.properties`.
+5. Build:
+   * Execute command: `cd android && ./gradlew assembleDebug`
+   * The APK will be at `android/app/build/outputs/apk/debug/app-debug.apk`.
+   * For a signed release build, put a `keystore.properties` next to `android/build.gradle` with
+     `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, then run `./gradlew assembleRelease`.
+
+The Gradle build drives the same root `CMakeLists.txt` as every other platform, so the native code
+is shared; only `android/` and the `ANDROID` blocks in `port/` are Android specific.
 
 ### Notes
 

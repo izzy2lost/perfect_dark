@@ -1,12 +1,15 @@
 package com.perfectdark.port;
 
-import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.Button;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -14,6 +17,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -22,24 +26,40 @@ import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.Locale;
 
 /**
- * Launcher that ensures the Perfect Dark ROM exists in
- * getExternalFilesDir(null)/data as pd.ntsc-final.z64 before starting SDL.
+ * Front end for the port: makes sure the ROM is in place, lets the player pick a mod and
+ * tune the on-screen controls, then hands off to {@link MainActivity}.
  */
 public class LauncherActivity extends AppCompatActivity {
+
     private static final String ROM_FILE_NAME = "pd.ntsc-final.z64";
-    // Primary: NTSC-U Rev 1 (v1.1) .z64 (recommended)
+    // NTSC-U Rev 1 (v1.1) .z64 -- what the port targets
     private static final String MD5_NTSC_V11 = "e03b088b6ac9e0080440efed07c1e40f";
-    // Secondary: NTSC-U v1.0 .z64 (not recommended, but optionally allowed)
+    // NTSC-U v1.0 .z64 -- allowed, but not recommended
     private static final String MD5_NTSC_V10 = "7f4171b0c8d17815be37913f535e4e93";
+
+    private static final float SENS_MIN = 0.25f;
+    private static final float SENS_MAX = 2.0f;
+    private static final float OPACITY_MIN = 0.05f;
 
     private View missingRomView;
     private TextView infoText;
-    private Button pickRomButton;
+    private Button playButton;
+    private RadioGroup modGroup;
+    private TextView opacityLabel;
+    private TextView sensLabel;
+
+    private TouchLayout touchLayout;
+    private boolean importing;
 
     private final ActivityResultLauncher<String[]> romPicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), this::onRomPicked);
+
+    private final ActivityResultLauncher<String[]> modPicker =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), this::onModPicked);
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -48,100 +68,116 @@ public class LauncherActivity extends AppCompatActivity {
 
         missingRomView = findViewById(R.id.missingRomContainer);
         infoText = findViewById(R.id.infoText);
-        pickRomButton = findViewById(R.id.pickRomButton);
+        playButton = findViewById(R.id.playButton);
+        modGroup = findViewById(R.id.modGroup);
+        opacityLabel = findViewById(R.id.opacityLabel);
+        sensLabel = findViewById(R.id.sensLabel);
 
-        pickRomButton.setOnClickListener(v -> openRomPicker());
+        touchLayout = new TouchLayout(this);
 
+        findViewById(R.id.pickRomButton).setOnClickListener(v -> openRomPicker());
+        findViewById(R.id.importModButton).setOnClickListener(v -> openModPicker());
+        findViewById(R.id.deleteModButton).setOnClickListener(v -> confirmDeleteMod());
+        findViewById(R.id.resetLayoutButton).setOnClickListener(v -> {
+            touchLayout.resetToDefaults();
+            syncSliders();
+            Toast.makeText(this, "Control layout reset", Toast.LENGTH_SHORT).show();
+        });
+        playButton.setOnClickListener(v -> onPlayPressed());
+
+        setUpSliders();
         ensureDataDir();
+    }
 
-        if (romExists()) {
-            File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
-            int hashStatus = checkRomHash(target);
-            if (hashStatus == 0) {
-                startGame();
-            } else if (hashStatus == 1) {
-                showV10WarningDialog(target);
-            } else {
-                showHashMismatchDialog(target);
-            }
-        } else {
-            showMissingRomUi();
-        }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshRomState();
+        refreshModList();
+    }
+
+    // ---------------------------------------------------------------- ROM
+
+    private File romFile() {
+        return new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
     }
 
     private void ensureDataDir() {
         File dataDir = new File(getExternalFilesDir(null), "data");
-        if (!dataDir.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            dataDir.mkdirs();
+        if (!dataDir.exists() && !dataDir.mkdirs()) {
+            Toast.makeText(this, "Could not create the data folder", Toast.LENGTH_LONG).show();
         }
     }
 
     private boolean romExists() {
-        File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
-        return target.exists() && target.length() > 0;
+        File f = romFile();
+        return f.exists() && f.length() > 0;
     }
 
-    private void showMissingRomUi() {
-        missingRomView.setVisibility(View.VISIBLE);
-        infoText.setText("ROM not found. Select your Perfect Dark NTSC (z64) ROM to proceed.\nIt will be copied to Android/data/com.perfectdark.port/files/data as " + ROM_FILE_NAME + ".");
+    private void refreshRomState() {
+        if (romExists()) {
+            missingRomView.setVisibility(View.GONE);
+            playButton.setEnabled(true);
+        } else {
+            missingRomView.setVisibility(View.VISIBLE);
+            infoText.setText(getString(R.string.rom_missing));
+            playButton.setEnabled(false);
+        }
+    }
+
+    private void onPlayPressed() {
+        if (!romExists()) {
+            Toast.makeText(this, "Select a ROM first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int status = checkRomHash(romFile());
+        if (status == 0) {
+            startGame();
+        } else if (status == 1) {
+            showV10WarningDialog(romFile());
+        } else {
+            showHashMismatchDialog(romFile());
+        }
     }
 
     private void openRomPicker() {
-        // Use SAF OpenDocument so we can persist read permission if supported.
         romPicker.launch(new String[]{"application/octet-stream", "*/*"});
     }
 
     private void onRomPicked(@Nullable Uri uri) {
         if (uri == null) {
-            Toast.makeText(this, "No file selected", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Take persistable permission so we can read during copy
-        final int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         try {
-            getContentResolver().takePersistableUriPermission(uri, flags);
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (Exception ignored) {
-            // Not critical; some providers don't support persistable perms
+            // some providers do not support persistable permissions; we only need it for the copy
         }
 
         try {
-            copyRomToAppData(uri);
+            copyToFile(uri, romFile());
         } catch (IOException e) {
             Toast.makeText(this, "Failed to copy ROM: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
 
+        refreshRomState();
         if (romExists()) {
-            File target = new File(new File(getExternalFilesDir(null), "data"), ROM_FILE_NAME);
-            int hashStatus = checkRomHash(target);
-            if (hashStatus == 0) {
-                Toast.makeText(this, "ROM verified — starting game", Toast.LENGTH_SHORT).show();
-                startGame();
-            } else if (hashStatus == 1) {
-                showV10WarningDialog(target);
-            } else {
-                showHashMismatchDialog(target);
-            }
-        } else {
-            Toast.makeText(this, "ROM copy failed", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "ROM copied", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void copyRomToAppData(Uri sourceUri) throws IOException {
-        File dataDir = new File(getExternalFilesDir(null), "data");
-        if (!dataDir.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            dataDir.mkdirs();
+    private void copyToFile(Uri sourceUri, File target) throws IOException {
+        File parent = target.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Could not create " + parent.getAbsolutePath());
         }
-
-        File target = new File(dataDir, ROM_FILE_NAME);
-
         try (InputStream in = getContentResolver().openInputStream(sourceUri);
              FileOutputStream out = new FileOutputStream(target)) {
-            if (in == null) throw new IOException("Unable to open selected file");
-            byte[] buf = new byte[8192];
+            if (in == null) {
+                throw new IOException("Unable to open the selected file");
+            }
+            byte[] buf = new byte[64 * 1024];
             int read;
             while ((read = in.read(buf)) != -1) {
                 out.write(buf, 0, read);
@@ -151,15 +187,12 @@ public class LauncherActivity extends AppCompatActivity {
     }
 
     private void startGame() {
-        // Hand off to SDL/MainActivity
         Intent intent = new Intent(this, MainActivity.class);
-        // Ensure we don’t come back here when user quits the game
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
-        finish();
     }
 
-    // Returns: 0 = matches v1.1 (recommended), 1 = matches v1.0 (allowed), -1 = mismatch/error
+    /** 0 = v1.1 (recommended), 1 = v1.0 (allowed), -1 = unknown. */
     private int checkRomHash(File file) {
         try {
             String md5 = computeMd5(file);
@@ -182,49 +215,229 @@ public class LauncherActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setTitle("Wrong ROM version")
-                .setMessage("Expected NTSC-U v1.1 ROM (md5: " + MD5_NTSC_V11 + ")\nAlso allowed (not recommended): v1.0 (md5: " + MD5_NTSC_V10 + ")\n\nGot: " + computed + "\n\nPick a different .z64 ROM?")
+                .setMessage("Expected NTSC-U v1.1 (md5 " + MD5_NTSC_V11 + ")\n"
+                        + "Also allowed: v1.0 (md5 " + MD5_NTSC_V10 + ")\n\nGot: " + computed)
                 .setPositiveButton("Pick another", (d, w) -> {
-                    // Remove the copied file to avoid confusion
-                    try { //noinspection ResultOfMethodCallIgnored
-                        target.delete();
-                    } catch (Exception ignored) {}
-                    showMissingRomUi();
+                    //noinspection ResultOfMethodCallIgnored
+                    target.delete();
+                    refreshRomState();
+                    openRomPicker();
                 })
-                .setNegativeButton("Proceed anyway", (d, w) -> startGame())
-                .setCancelable(false)
+                .setNegativeButton("Play anyway", (d, w) -> startGame())
                 .show();
     }
 
     private void showV10WarningDialog(File target) {
         new AlertDialog.Builder(this)
                 .setTitle("NTSC v1.0 detected")
-                .setMessage("You selected NTSC-U v1.0 (not recommended).\nThe port targets v1.1; some content may not work.\n\nProceed with v1.0 or pick a different ROM?")
-                .setPositiveButton("Proceed", (d, w) -> startGame())
+                .setMessage("The port targets NTSC-U v1.1. v1.0 mostly works, but some content may not.")
+                .setPositiveButton("Play", (d, w) -> startGame())
                 .setNegativeButton("Pick another", (d, w) -> {
-                    try { //noinspection ResultOfMethodCallIgnored
-                        target.delete();
-                    } catch (Exception ignored) {}
-                    showMissingRomUi();
+                    //noinspection ResultOfMethodCallIgnored
+                    target.delete();
+                    refreshRomState();
+                    openRomPicker();
                 })
-                .setCancelable(false)
                 .show();
     }
 
     private String computeMd5(File file) throws IOException, NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("MD5");
-        byte[] buffer = new byte[8192];
-        int read;
+        byte[] buffer = new byte[64 * 1024];
         try (InputStream in = new java.io.FileInputStream(file);
              DigestInputStream din = new DigestInputStream(in, md)) {
-            while ((read = din.read(buffer)) != -1) {
-                // digest updated via DigestInputStream
+            //noinspection StatementWithEmptyBody
+            while (din.read(buffer) != -1) {
+                // DigestInputStream updates the digest as we read
             }
         }
-        byte[] digest = md.digest();
-        StringBuilder sb = new StringBuilder(digest.length * 2);
-        for (byte b : digest) {
-            sb.append(String.format("%02x", b));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : md.digest()) {
+            sb.append(String.format(Locale.US, "%02x", b));
         }
         return sb.toString();
+    }
+
+    // ---------------------------------------------------------------- mods
+
+    private void refreshModList() {
+        List<ModManager.ModInfo> mods = ModManager.installed(this);
+        String active = ModManager.getActive(this);
+
+        modGroup.setOnCheckedChangeListener(null);
+        modGroup.removeAllViews();
+
+        RadioButton none = new RadioButton(this);
+        none.setId(View.generateViewId());
+        none.setText(getString(R.string.no_mod));
+        none.setTextColor(0xFFD8D8E2);
+        none.setTag("");
+        modGroup.addView(none);
+
+        for (ModManager.ModInfo m : mods) {
+            RadioButton rb = new RadioButton(this);
+            rb.setId(View.generateViewId());
+            rb.setText(m.name + "  (" + ModManager.humanSize(m.sizeBytes)
+                    + (m.hasConfig ? ", modconfig.txt" : "") + ")");
+            rb.setTextColor(0xFFD8D8E2);
+            rb.setTag(m.name);
+            modGroup.addView(rb);
+        }
+
+        // restore the selection
+        int checkId = none.getId();
+        for (int i = 0; i < modGroup.getChildCount(); ++i) {
+            View child = modGroup.getChildAt(i);
+            if (active.equals(child.getTag())) {
+                checkId = child.getId();
+                break;
+            }
+        }
+        modGroup.check(checkId);
+
+        modGroup.setOnCheckedChangeListener((group, id) -> {
+            View sel = group.findViewById(id);
+            if (sel != null) {
+                ModManager.setActive(this, (String) sel.getTag());
+            }
+        });
+    }
+
+    private void openModPicker() {
+        if (importing) {
+            return;
+        }
+        modPicker.launch(new String[]{"application/zip", "application/x-zip-compressed", "*/*"});
+    }
+
+    private void onModPicked(@Nullable Uri uri) {
+        if (uri == null || importing) {
+            return;
+        }
+
+        final String displayName = queryDisplayName(uri);
+        importing = true;
+        Toast.makeText(this, "Importing " + displayName + "…", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            String result;
+            String error = null;
+            try {
+                result = ModManager.installFromZip(this, uri, displayName);
+            } catch (IOException e) {
+                result = null;
+                error = e.getMessage();
+            }
+
+            final String installed = result;
+            final String failure = error;
+            runOnUiThread(() -> {
+                importing = false;
+                if (installed != null) {
+                    ModManager.setActive(this, installed);
+                    refreshModList();
+                    Toast.makeText(this, "Installed and selected: " + installed, Toast.LENGTH_LONG).show();
+                } else {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Could not import mod")
+                            .setMessage(failure == null ? "Unknown error" : failure)
+                            .setPositiveButton("OK", null)
+                            .show();
+                }
+            });
+        }, "mod-import").start();
+    }
+
+    private void confirmDeleteMod() {
+        final String active = ModManager.getActive(this);
+        if (active.isEmpty()) {
+            Toast.makeText(this, "Select a mod to delete", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Delete " + active + "?")
+                .setMessage("This removes the mod's files from this device.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    if (ModManager.delete(this, active)) {
+                        Toast.makeText(this, "Deleted " + active, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Could not delete " + active, Toast.LENGTH_LONG).show();
+                    }
+                    refreshModList();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private String queryDisplayName(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (idx >= 0) {
+                    String name = c.getString(idx);
+                    if (name != null && !name.isEmpty()) {
+                        return name;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to the generic name
+        }
+        return "mod.zip";
+    }
+
+    // ---------------------------------------------------------------- touch settings
+
+    private void setUpSliders() {
+        SeekBar opacity = findViewById(R.id.opacitySeek);
+        SeekBar sens = findViewById(R.id.sensSeek);
+
+        opacity.setOnSeekBarChangeListener(new SimpleSeekListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                touchLayout.opacity = OPACITY_MIN + (1f - OPACITY_MIN) * (progress / 100f);
+                updateSliderLabels();
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                touchLayout.save();
+            }
+        });
+
+        sens.setOnSeekBarChangeListener(new SimpleSeekListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                touchLayout.lookSensitivity = SENS_MIN + (SENS_MAX - SENS_MIN) * (progress / 100f);
+                updateSliderLabels();
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                touchLayout.save();
+            }
+        });
+
+        syncSliders();
+    }
+
+    private void syncSliders() {
+        SeekBar opacity = findViewById(R.id.opacitySeek);
+        SeekBar sens = findViewById(R.id.sensSeek);
+        opacity.setProgress(Math.round((touchLayout.opacity - OPACITY_MIN) / (1f - OPACITY_MIN) * 100f));
+        sens.setProgress(Math.round((touchLayout.lookSensitivity - SENS_MIN) / (SENS_MAX - SENS_MIN) * 100f));
+        updateSliderLabels();
+    }
+
+    private void updateSliderLabels() {
+        opacityLabel.setText(String.format(Locale.US, "%s — %d%%",
+                getString(R.string.opacity), Math.round(touchLayout.opacity * 100)));
+        sensLabel.setText(String.format(Locale.US, "%s — %.2fx",
+                getString(R.string.look_sensitivity), touchLayout.lookSensitivity));
+    }
+
+    private abstract static class SimpleSeekListener implements SeekBar.OnSeekBarChangeListener {
+        @Override public void onStartTrackingTouch(SeekBar bar) { }
+        @Override public void onStopTrackingTouch(SeekBar bar) { }
     }
 }
