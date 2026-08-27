@@ -106,9 +106,15 @@ The default layout mirrors the N64 pad: a single analog stick bottom left drivin
 and the C buttons in their diamond bottom right. How the stick splits between walking and turning
 is the game's own `Control Style` setting, exactly as on hardware, and the C buttons look up and
 down and sidestep. `FIRE` and `AIM` sit along the top edge for the index fingers. Every button is
-labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z, `AIM`/R, `USE`/A,
-`BACK`/B, `RELOAD`/X, `NEXT`/Y, `PREV`/D-Left, `ALT`/L, `WEAPON`/D-Down, plus `CROUCH`, `START`
-and `~` for the console.
+labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z, `AIM`/R,
+`USE`/A, `BACK`/B, plus `CROUCH`, `START` and `~` for the console. Weapons cycle by holding `USE`
+and tapping `FIRE` or `AIM`, as on the N64.
+
+The port's extra buttons -- alt-fire toggle, the reload hack, weapon next/prev and the radial
+menu -- are gated to `CONTROLMODE_PC` in `bondmove.c`, so they do nothing in the N64 control
+style and are deliberately absent from the overlay rather than sitting there dead. Crouch is the
+exception: it rides on synthetic pad bits (`CONT_8000` and friends) that no real N64 controller
+has, so it cannot collide with anything and now runs in every control style.
 
 There is deliberately no second stick, and Android defaults `Game.PlayerN.ExtendedControls` to
 `0` to match. With extended ("PC") controls on, the game runs control style `CONTROLMODE_PC`,

@@ -15,7 +15,7 @@
     <string name="no_mod">None (unmodified game)</string>
 
     <string name="onscreen_controls">On-screen controls</string>
-    <string name="controls_hint">Laid out like the N64 pad: one analog stick for all movement, with the C buttons handling look and sidestep. FIRE and AIM sit along the top edge for your index fingers. In game, tap ◎ (top left) to hide or show the controls, or hold ◎ to rearrange them — drag to move, pinch to resize, Back when done. The overlay hides itself while a physical controller is connected.</string>
+    <string name="controls_hint">Laid out like the N64 pad: one analog stick for all movement, with the C buttons handling look and sidestep. FIRE and AIM sit along the top edge for your index fingers. Weapons cycle by holding USE and tapping FIRE or AIM, as on the N64. In game, tap ◎ (top left) to hide or show the controls, or hold ◎ to rearrange them — drag to move, pinch to resize, Back when done. The overlay hides itself while a physical controller is connected.</string>
     <string name="opacity">Opacity</string>
     <string name="reset_layout">Reset control layout</string>
 

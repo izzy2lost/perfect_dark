@@ -114,7 +114,7 @@ public final class TouchLayout {
 
     private static final String PREFS = "touch_controls";
     // bumped when the default layout changes shape, so an old save cannot resurrect a bad one
-    private static final int LAYOUT_VERSION = 6;
+    private static final int LAYOUT_VERSION = 7;
     private static final String KEY_VERSION = "layout_version";
     private static final String KEY_LAYOUT = "layout";
     private static final String KEY_OPACITY = "opacity";
@@ -158,26 +158,21 @@ public final class TouchLayout {
                 CONT_Z, 0, 126, 44, 36, true));
 
         // Face buttons, inboard of the C diamond.
+        //
+        // Only buttons that do something in the N64 control style live here. The port's extras
+        // -- alt-fire toggle, reload hack, weapon next/prev, radial menu -- are gated to
+        // CONTROLMODE_PC in bondmove.c, and their N64 pad equivalents (L, the d-pad) merely
+        // duplicate AIM and the C buttons, so showing them would just be dead buttons.
+        // Weapons cycle by holding USE and tapping FIRE or AIM, as on the N64.
         controls.add(new Control("use", "USE", "A", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_A, 0, 232, 88, 27, true));
+                CONT_A, 0, 236, 92, 30, true));
         controls.add(new Control("back", "BACK", "B", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_B, 0, 232, 162, 25, true));
-        controls.add(new Control("reload", "RELOAD", "X", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_X, 0, 302, 78, 25, true));
-        controls.add(new Control("next", "NEXT", "Y", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_Y, 0, 302, 152, 25, true));
+                CONT_B, 0, 236, 176, 28, true));
 
-        // Left-hand extras, stacked beside the stick.
+        // Crouch cycling rides on synthetic pad bits no real N64 controller has, so it works
+        // in every control style.
         controls.add(new Control("crouch", "CROUCH", "", Kind.BUTTON, Anchor.BOTTOM_LEFT,
-                CONT_CROUCH_CYCLE, 0, 212, 84, 26, true));
-        controls.add(new Control("radial", "WEAPON", "D-D", Kind.BUTTON, Anchor.BOTTOM_LEFT,
-                CONT_DOWN, 0, 212, 158, 25, true));
-
-        // Occasional actions live on the top edge rather than over the play area.
-        controls.add(new Control("altfire", "ALT", "L", Kind.BUTTON, Anchor.TOP_LEFT,
-                CONT_L, 0, 214, 44, 26, true));
-        controls.add(new Control("prev", "PREV", "D-L", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_LEFT, 0, 272, 42, 24, true));
+                CONT_CROUCH_CYCLE, 0, 214, 100, 30, true));
 
         // System row.
         controls.add(new Control("hide", "\u25CE", "", Kind.TOGGLE, Anchor.TOP_LEFT,

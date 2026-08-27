@@ -1780,6 +1780,12 @@ void bmoveProcessInput(bool allowc1x, bool allowc1y, bool allowc1buttons, bool i
 							}
 						}
 
+					}
+
+					// Crouch cycling is a port addition driven by synthetic pad bits (CONT_8000
+					// and friends) that no real N64 controller has, so it cannot collide with any
+					// N64 control style and runs in all of them rather than PC controls only.
+					if (allowc1buttons) {
 						// Handle xbla-style crouch cycling
 						const s32 oldcrouchpos = g_Vars.currentplayer->crouchpos;
 						for (i = 0; i < numsamples; i++) {
