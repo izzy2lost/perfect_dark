@@ -99,7 +99,7 @@ public final class TouchLayout {
 
     private static final String PREFS = "touch_controls";
     // bumped when the default layout changes shape, so an old save cannot resurrect a bad one
-    private static final int LAYOUT_VERSION = 3;
+    private static final int LAYOUT_VERSION = 4;
     private static final String KEY_VERSION = "layout_version";
     private static final String KEY_LAYOUT = "layout";
     private static final String KEY_OPACITY = "opacity";
@@ -124,47 +124,47 @@ public final class TouchLayout {
 
         // Twin sticks in the bottom corners, where the thumbs already rest.
         controls.add(new Control("move", "", "", Kind.STICK_MOVE, Anchor.BOTTOM_LEFT,
-                0, 0, 118, 118, 78, true));
+                0, 0, 105, 105, 68, true));
         controls.add(new Control("look", "", "", Kind.STICK_LOOK, Anchor.BOTTOM_RIGHT,
-                0, 0, 118, 118, 78, true));
+                0, 0, 105, 105, 68, true));
 
         // Fire and aim go along the top edge under the index fingers, since both thumbs are
         // occupied by the sticks.
         controls.add(new Control("aim", "AIM", "R", Kind.BUTTON, Anchor.TOP_LEFT,
-                CONT_R, 0, 150, 56, 44, true));
+                CONT_R, 0, 118, 44, 33, true));
         controls.add(new Control("fire", "FIRE", "Z", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_Z, 0, 150, 56, 48, true));
+                CONT_Z, 0, 112, 44, 36, true));
 
         // Face buttons, in a block inboard of the look stick where the right thumb reaches.
-        // Nothing goes past ~380dp from either edge, so the middle of the screen stays clear.
+        // Radii stay at or above 24dp, which is the smallest comfortable touch target.
         controls.add(new Control("use", "USE", "A", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_A, 0, 250, 100, 36, true));
+                CONT_A, 0, 212, 88, 27, true));
         controls.add(new Control("back", "BACK", "B", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_B, 0, 250, 200, 33, true));
+                CONT_B, 0, 212, 162, 25, true));
         controls.add(new Control("reload", "RELOAD", "X", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_X, 0, 344, 86, 33, true));
+                CONT_X, 0, 282, 78, 25, true));
         controls.add(new Control("next", "NEXT", "Y", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_Y, 0, 344, 186, 33, true));
+                CONT_Y, 0, 282, 152, 25, true));
 
         // Left-hand extras, stacked beside the move stick.
         controls.add(new Control("crouch", "CROUCH", "", Kind.BUTTON, Anchor.BOTTOM_LEFT,
-                CONT_CROUCH_CYCLE, 0, 250, 96, 34, true));
+                CONT_CROUCH_CYCLE, 0, 212, 84, 26, true));
         controls.add(new Control("radial", "WEAPON", "D-D", Kind.BUTTON, Anchor.BOTTOM_LEFT,
-                CONT_DOWN, 0, 250, 196, 33, true));
+                CONT_DOWN, 0, 212, 158, 25, true));
 
         // Occasional actions live on the top edge rather than over the play area.
         controls.add(new Control("altfire", "ALT", "L", Kind.BUTTON, Anchor.TOP_LEFT,
-                CONT_L, 0, 258, 56, 34, true));
+                CONT_L, 0, 196, 44, 26, true));
         controls.add(new Control("prev", "PREV", "D-L", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_LEFT, 0, 340, 52, 32, true));
+                CONT_LEFT, 0, 258, 42, 24, true));
 
         // System row.
         controls.add(new Control("hide", "◎", "", Kind.TOGGLE, Anchor.TOP_LEFT,
-                0, 0, 44, 44, 26, true));
+                0, 0, 36, 36, 20, true));
         controls.add(new Control("start", "START", "", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_START, 0, 46, 46, 30, true));
+                CONT_START, 0, 38, 38, 23, true));
         controls.add(new Control("console", "~", "", Kind.KEY, Anchor.TOP_RIGHT,
-                0, android.view.KeyEvent.KEYCODE_GRAVE, 250, 46, 26, true));
+                0, android.view.KeyEvent.KEYCODE_GRAVE, 190, 40, 20, true));
     }
 
     public List<Control> getControls() {
