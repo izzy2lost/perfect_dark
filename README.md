@@ -102,10 +102,16 @@ connected. In game:
   when you are done. The layout is remembered per device;
 * opacity and look sensitivity are on the launcher screen, along with `Reset control layout`.
 
-The default layout maps the N64 pad as follows: `Z` fire, `R` aim, `A` use/accept, `B` use/cancel,
-`X` reload, `Y` next weapon, `<` previous weapon, `L` alt-fire mode, `Q` radial menu, `CR` crouch
-cycle, `ST` start, `~` console. The left stick moves; dragging anywhere on the free space on the
-right looks around.
+The default layout is twin sticks in the bottom corners -- left moves, right looks -- with `FIRE`
+and `AIM` along the top edge for the index fingers, since both thumbs are on the sticks. Every
+button is labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z,
+`AIM`/R, `USE`/A, `BACK`/B, `RELOAD`/X, `NEXT`/Y, `PREV`/D-Left, `ALT`/L, `WEAPON`/D-Down, plus
+`CROUCH`, `START` and `~` for the console.
+
+Controls are positioned in dp from the nearest screen corner rather than as a fraction of the
+viewport, so they stay the same physical size and keep their grouping from 16:9 all the way out
+to 21:9 -- a fraction-based layout flings the buttons apart and shrinks them on the wide, short
+screens that landscape phones actually have.
 
 **Mods.** Put a mod in a `.zip` and press `Import .zip` on the launcher screen. It is unpacked to
 `Android/data/com.perfectdark.port/files/mods/<name>/` and the selected mod is passed to the game

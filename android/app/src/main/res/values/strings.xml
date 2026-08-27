@@ -13,7 +13,7 @@
     <string name="no_mod">None (unmodified game)</string>
 
     <string name="onscreen_controls">On-screen controls</string>
-    <string name="controls_hint">In game, tap ◎ (top left) to hide or show the controls. Hold ◎ to rearrange them: drag to move, pinch to resize, Back when done. The overlay hides itself automatically while a physical controller is connected.</string>
+    <string name="controls_hint">Twin sticks: left moves, right looks. FIRE and AIM sit along the top edge for your index fingers. In game, tap ◎ (top left) to hide or show the controls, or hold ◎ to rearrange them — drag to move, pinch to resize, Back when done. The overlay hides itself while a physical controller is connected.</string>
     <string name="opacity">Opacity</string>
     <string name="look_sensitivity">Look sensitivity</string>
     <string name="reset_layout">Reset control layout</string>

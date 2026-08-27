@@ -18,6 +18,10 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -64,7 +68,9 @@ public class LauncherActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_launcher);
+        applyEdgeToEdgeInsets();
 
         missingRomView = findViewById(R.id.missingRomContainer);
         infoText = findViewById(R.id.infoText);
@@ -87,6 +93,24 @@ public class LauncherActivity extends AppCompatActivity {
 
         setUpSliders();
         ensureDataDir();
+    }
+
+    /**
+     * The window runs edge to edge, so the content has to keep itself clear of the status bar,
+     * the navigation bar and any camera cutout. In landscape those land on the short edges,
+     * which is exactly where the buttons are.
+     */
+    private void applyEdgeToEdgeInsets() {
+        final View content = findViewById(R.id.launcherContent);
+        final int base = Math.round(24 * getResources().getDisplayMetrics().density);
+
+        ViewCompat.setOnApplyWindowInsetsListener(content, (v, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            v.setPadding(base + bars.left, base + bars.top, base + bars.right, base + bars.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(content);
     }
 
     @Override

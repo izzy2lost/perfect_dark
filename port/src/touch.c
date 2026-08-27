@@ -6,6 +6,9 @@
 #include "touch.h"
 
 static atomic_uint touchButtons;
+// Bits pressed since the last read. inputReadController() samples us once a frame, so a tap
+// that goes down and back up inside 16ms would otherwise never be seen at all.
+static atomic_uint touchLatched;
 static atomic_int touchStick[TOUCH_STICK_COUNT][2];
 static atomic_int touchActive;
 
@@ -21,7 +24,11 @@ static inline s32 touchClampStick(f32 v)
 
 void touchSetButtons(u32 contMask)
 {
-	atomic_store_explicit(&touchButtons, contMask, memory_order_relaxed);
+	const u32 prev = atomic_exchange_explicit(&touchButtons, contMask, memory_order_relaxed);
+	const u32 pressed = contMask & ~prev;
+	if (pressed) {
+		atomic_fetch_or_explicit(&touchLatched, pressed, memory_order_relaxed);
+	}
 }
 
 void touchSetStick(s32 stick, f32 x, f32 y)
@@ -38,6 +45,7 @@ void touchSetActive(s32 active)
 	if (!active) {
 		// make sure nothing stays held down when the overlay goes away
 		atomic_store_explicit(&touchButtons, 0u, memory_order_relaxed);
+		atomic_store_explicit(&touchLatched, 0u, memory_order_relaxed);
 		for (s32 i = 0; i < TOUCH_STICK_COUNT; ++i) {
 			atomic_store_explicit(&touchStick[i][0], 0, memory_order_relaxed);
 			atomic_store_explicit(&touchStick[i][1], 0, memory_order_relaxed);
@@ -48,7 +56,11 @@ void touchSetActive(s32 active)
 
 u32 touchGetButtons(void)
 {
-	return atomic_load_explicit(&touchButtons, memory_order_relaxed);
+	// Anything pressed since the last call is reported for at least this one frame, then
+	// cleared, so a very quick tap still produces a full press and release for the game.
+	const u32 held = atomic_load_explicit(&touchButtons, memory_order_relaxed);
+	const u32 latched = atomic_exchange_explicit(&touchLatched, 0u, memory_order_relaxed);
+	return held | latched;
 }
 
 void touchGetStick(s32 stick, f32 *outX, f32 *outY)

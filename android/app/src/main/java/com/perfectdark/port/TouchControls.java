@@ -24,9 +24,16 @@ import org.libsdl.app.SDLActivity;
  */
 public class TouchControls extends View {
 
-    private static final float DEADZONE = 0.16f;
+    private static final float DEADZONE = 0.14f;
+    /** fraction of a stick's radius that counts as full deflection */
+    private static final float STICK_TRAVEL = 0.80f;
+    /** how far the drawn knob moves, as a fraction of the radius */
+    private static final float KNOB_THROW = 0.55f;
+
+    private static final long EDIT_LONG_PRESS_MS = 650;
 
     private final TouchLayout layout;
+    private final float density;
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -35,8 +42,8 @@ public class TouchControls extends View {
 
     /** pointer id -> the control it is currently driving */
     private final SparseArray<TouchLayout.Control> owned = new SparseArray<>();
-    /** pointer id -> {anchorX, anchorY} in pixels, for stick controls */
-    private final SparseArray<float[]> anchors = new SparseArray<>();
+    /** pointer id -> current position in pixels, for stick controls */
+    private final SparseArray<float[]> stickPos = new SparseArray<>();
 
     private boolean editMode;
     private TouchLayout.Control editTarget;
@@ -46,17 +53,17 @@ public class TouchControls extends View {
 
     private int lastMask;
     private boolean gamepadPresent;
+    private boolean longPressFired;
 
-    private static final long EDIT_LONG_PRESS_MS = 650;
     private final Runnable enterEdit = () -> {
         longPressFired = true;
         setEditMode(true);
     };
-    private boolean longPressFired;
 
     public TouchControls(Context context, TouchLayout layout) {
         super(context);
         this.layout = layout;
+        this.density = context.getResources().getDisplayMetrics().density;
 
         setFocusable(false);
         setFocusableInTouchMode(false);
@@ -77,25 +84,53 @@ public class TouchControls extends View {
     // ---------------------------------------------------------------- geometry
 
     private float px(TouchLayout.Control c) {
-        return c.cx * getWidth();
+        final float d = c.dx * density;
+        switch (c.anchor) {
+            case TOP_LEFT:
+            case BOTTOM_LEFT:
+                return d;
+            default:
+                return getWidth() - d;
+        }
     }
 
     private float py(TouchLayout.Control c) {
-        return c.cy * getHeight();
+        final float d = c.dy * density;
+        switch (c.anchor) {
+            case TOP_LEFT:
+            case TOP_RIGHT:
+                return d;
+            default:
+                return getHeight() - d;
+        }
     }
 
     private float pr(TouchLayout.Control c) {
-        return c.radius * getHeight() * 0.5f;
+        return c.radius * density;
+    }
+
+    /** Writes a pixel centre back to the control as dp from its own anchor, kept on screen. */
+    private void setCentrePx(TouchLayout.Control c, float cx, float cy) {
+        final float r = pr(c);
+        cx = clamp(cx, r, getWidth() - r);
+        cy = clamp(cy, r, getHeight() - r);
+
+        final boolean left = c.anchor == TouchLayout.Anchor.TOP_LEFT
+                || c.anchor == TouchLayout.Anchor.BOTTOM_LEFT;
+        final boolean top = c.anchor == TouchLayout.Anchor.TOP_LEFT
+                || c.anchor == TouchLayout.Anchor.TOP_RIGHT;
+
+        c.dx = (left ? cx : getWidth() - cx) / density;
+        c.dy = (top ? cy : getHeight() - cy) / density;
     }
 
     private TouchLayout.Control hitTest(float x, float y) {
-        // Buttons win over the look area, so a stray press near a button never spins the camera.
+        // Buttons win over the sticks, so a press that clips a button never also steers.
         TouchLayout.Control stick = null;
         for (TouchLayout.Control c : layout.getControls()) {
             if (!c.enabled) {
                 continue;
             }
-            // the editor always shows everything, even if the overlay is currently hidden
             if (!layout.enabled && !editMode && c.kind != TouchLayout.Kind.TOGGLE) {
                 continue;
             }
@@ -105,7 +140,7 @@ public class TouchControls extends View {
             if (dx * dx + dy * dy > r * r) {
                 continue;
             }
-            if (c.kind == TouchLayout.Kind.STICK_MOVE || c.kind == TouchLayout.Kind.STICK_LOOK) {
+            if (c.isStick()) {
                 stick = c;
             } else {
                 return c;
@@ -147,8 +182,9 @@ public class TouchControls extends View {
                 }
 
                 owned.put(id, c);
-                if (c.kind == TouchLayout.Kind.STICK_MOVE || c.kind == TouchLayout.Kind.STICK_LOOK) {
-                    anchors.put(id, new float[]{x, y});
+                if (c.isStick()) {
+                    stickPos.put(id, new float[]{x, y});
+                    updateStick(c, id, x, y);
                 } else if (c.kind == TouchLayout.Kind.KEY) {
                     SDLActivity.onNativeKeyDown(c.keyCode);
                 } else if (c.kind == TouchLayout.Kind.TOGGLE) {
@@ -173,7 +209,7 @@ public class TouchControls extends View {
                         continue;
                     }
                     any = true;
-                    if (c.kind == TouchLayout.Kind.STICK_MOVE || c.kind == TouchLayout.Kind.STICK_LOOK) {
+                    if (c.isStick()) {
                         updateStick(c, id, event.getX(i), event.getY(i));
                     }
                 }
@@ -216,14 +252,20 @@ public class TouchControls extends View {
         return false;
     }
 
+    /**
+     * Sticks are fixed rather than floating: deflection is measured from the control's own
+     * centre, so what the player sees under their thumb is what the game is being told.
+     */
     private void updateStick(TouchLayout.Control c, int id, float x, float y) {
-        final float[] anchor = anchors.get(id);
-        if (anchor == null) {
-            return;
+        final float[] pos = stickPos.get(id);
+        if (pos != null) {
+            pos[0] = x;
+            pos[1] = y;
         }
-        final float r = pr(c);
-        float dx = (x - anchor[0]) / r;
-        float dy = (y - anchor[1]) / r;
+
+        final float travel = pr(c) * STICK_TRAVEL;
+        float dx = (x - px(c)) / travel;
+        float dy = (y - py(c)) / travel;
 
         if (c.kind == TouchLayout.Kind.STICK_LOOK) {
             dx *= layout.lookSensitivity;
@@ -234,7 +276,7 @@ public class TouchControls extends View {
         if (mag < DEADZONE) {
             dx = dy = 0f;
         } else {
-            // rescale so the stick starts moving from zero at the edge of the deadzone
+            // rescale so the stick starts from zero at the edge of the deadzone
             final float scaled = Math.min((mag - DEADZONE) / (1f - DEADZONE), 1f);
             dx = dx / mag * scaled;
             dy = dy / mag * scaled;
@@ -246,7 +288,7 @@ public class TouchControls extends View {
 
     private void releasePointer(int id, TouchLayout.Control c) {
         owned.remove(id);
-        anchors.remove(id);
+        stickPos.remove(id);
         if (c.kind == TouchLayout.Kind.STICK_MOVE) {
             nativeSetStick(0, 0f, 0f);
         } else if (c.kind == TouchLayout.Kind.STICK_LOOK) {
@@ -269,7 +311,7 @@ public class TouchControls extends View {
             releasePointer(owned.keyAt(i), owned.valueAt(i));
         }
         owned.clear();
-        anchors.clear();
+        stickPos.clear();
         nativeSetStick(0, 0f, 0f);
         nativeSetStick(1, 0f, 0f);
     }
@@ -326,7 +368,7 @@ public class TouchControls extends View {
                 pinchStartDist = dist;
                 pinchStartRadius = editTarget.radius;
             } else if (pinchStartDist > 1f) {
-                editTarget.radius = clamp(pinchStartRadius * (dist / pinchStartDist), 0.04f, 0.6f);
+                editTarget.radius = clamp(pinchStartRadius * (dist / pinchStartDist), 18f, 140f);
                 invalidate();
             }
             return true;
@@ -336,11 +378,7 @@ public class TouchControls extends View {
         if (index < 0) {
             return true;
         }
-        final float r = pr(editTarget);
-        editTarget.cx = clamp((event.getX(index) + editGrabDx) / getWidth(),
-                r / getWidth(), 1f - r / getWidth());
-        editTarget.cy = clamp((event.getY(index) + editGrabDy) / getHeight(),
-                r / getHeight(), 1f - r / getHeight());
+        setCentrePx(editTarget, event.getX(index) + editGrabDx, event.getY(index) + editGrabDy);
         invalidate();
         return true;
     }
@@ -395,12 +433,6 @@ public class TouchControls extends View {
 
     public TouchLayout getLayout() {
         return layout;
-    }
-
-    public void onSettingsChanged() {
-        layout.save();
-        syncActive();
-        invalidate();
     }
 
     // ---------------------------------------------------------------- lifecycle
@@ -460,7 +492,6 @@ public class TouchControls extends View {
         }
 
         final int alpha = (int) (clamp(layout.opacity, 0.05f, 1f) * 255);
-        final float scale = getHeight() / 1080f;
 
         for (TouchLayout.Control c : layout.getControls()) {
             if (!c.enabled) {
@@ -470,73 +501,115 @@ public class TouchControls extends View {
             if (!layout.enabled && !editMode && c.kind != TouchLayout.Kind.TOGGLE) {
                 continue;
             }
-
-            final float x = px(c);
-            final float y = py(c);
-            final float r = pr(c);
-            final boolean pressed = isPressed(c);
-            final boolean selected = editMode && c == editTarget;
-
-            if (c.kind == TouchLayout.Kind.STICK_LOOK && !editMode) {
-                // The look area is invisible in play; showing it would just clutter the screen.
-                drawStickKnob(canvas, c, alpha);
-                continue;
-            }
-
-            fill.setColor(Color.WHITE);
-            fill.setAlpha(pressed ? (int) (alpha * 0.75f) : (int) (alpha * 0.22f));
-            canvas.drawCircle(x, y, r, fill);
-
-            stroke.setColor(selected ? Color.YELLOW : Color.WHITE);
-            stroke.setAlpha(selected ? 255 : alpha);
-            stroke.setStrokeWidth(Math.max(2f, 3.5f * scale));
-            canvas.drawCircle(x, y, r, stroke);
-
-            if (!c.label.isEmpty()) {
-                text.setColor(Color.WHITE);
-                text.setAlpha(Math.min(255, alpha + 70));
-                text.setTextSize(r * 0.85f);
-                canvas.drawText(c.label, x, y + r * 0.30f, text);
-            }
-
-            if (c.kind == TouchLayout.Kind.STICK_MOVE) {
-                drawStickKnob(canvas, c, alpha);
+            if (c.isStick()) {
+                drawStick(canvas, c, alpha);
+            } else {
+                drawButton(canvas, c, alpha);
             }
         }
 
         if (editMode) {
-            editHint.setTextSize(Math.max(22f, 34f * scale));
-            editHint.setAlpha(220);
-            canvas.drawText("Drag to move \u2022 pinch to resize \u2022 Back when done",
-                    getWidth() * 0.5f, Math.max(40f, 62f * scale), editHint);
+            editHint.setTextSize(20f * density);
+            editHint.setAlpha(230);
+            canvas.drawText("Drag to move • pinch to resize • Back when done",
+                    getWidth() * 0.5f, 34f * density, editHint);
         }
     }
 
-    private void drawStickKnob(Canvas canvas, TouchLayout.Control c, int alpha) {
-        int id = -1;
-        for (int i = 0; i < owned.size(); ++i) {
-            if (owned.valueAt(i) == c) {
-                id = owned.keyAt(i);
-                break;
-            }
-        }
-        if (id < 0) {
-            return;
-        }
-        final float[] anchor = anchors.get(id);
-        if (anchor == null) {
-            return;
-        }
-
+    private void drawButton(Canvas canvas, TouchLayout.Control c, int alpha) {
+        final float x = px(c);
+        final float y = py(c);
         final float r = pr(c);
-        stroke.setColor(Color.WHITE);
-        stroke.setAlpha((int) (alpha * 0.7f));
-        stroke.setStrokeWidth(Math.max(2f, r * 0.05f));
-        canvas.drawCircle(anchor[0], anchor[1], r * 0.55f, stroke);
+        final boolean pressed = isPressed(c);
+        final boolean selected = editMode && c == editTarget;
 
         fill.setColor(Color.WHITE);
-        fill.setAlpha((int) (alpha * 0.55f));
-        canvas.drawCircle(anchor[0], anchor[1], r * 0.22f, fill);
+        fill.setAlpha(pressed ? (int) (alpha * 0.8f) : (int) (alpha * 0.22f));
+        canvas.drawCircle(x, y, r, fill);
+
+        stroke.setColor(selected ? Color.YELLOW : Color.WHITE);
+        stroke.setAlpha(selected ? 255 : alpha);
+        stroke.setStrokeWidth(Math.max(2f, r * 0.055f));
+        canvas.drawCircle(x, y, r, stroke);
+
+        if (c.label.isEmpty()) {
+            return;
+        }
+
+        text.setColor(Color.WHITE);
+        text.setAlpha(Math.min(255, alpha + 90));
+
+        final boolean twoLine = !c.subLabel.isEmpty();
+        final float size = fitTextSize(c.label, r * 1.62f, r * (twoLine ? 0.72f : 0.95f));
+        text.setTextSize(size);
+
+        if (twoLine) {
+            canvas.drawText(c.label, x, y - r * 0.02f, text);
+            text.setTextSize(size * 0.72f);
+            text.setAlpha(Math.min(255, alpha + 40));
+            canvas.drawText(c.subLabel, x, y + r * 0.58f, text);
+        } else {
+            canvas.drawText(c.label, x, y + size * 0.35f, text);
+        }
+    }
+
+    /** Largest text size at which {@code s} fits inside {@code maxWidth}, capped at {@code cap}. */
+    private float fitTextSize(String s, float maxWidth, float cap) {
+        text.setTextSize(cap);
+        final float w = text.measureText(s);
+        if (w <= maxWidth || w <= 0f) {
+            return cap;
+        }
+        return cap * (maxWidth / w);
+    }
+
+    private void drawStick(Canvas canvas, TouchLayout.Control c, int alpha) {
+        final float x = px(c);
+        final float y = py(c);
+        final float r = pr(c);
+        final boolean selected = editMode && c == editTarget;
+
+        // base
+        fill.setColor(Color.WHITE);
+        fill.setAlpha((int) (alpha * 0.14f));
+        canvas.drawCircle(x, y, r, fill);
+
+        stroke.setColor(selected ? Color.YELLOW : Color.WHITE);
+        stroke.setAlpha(selected ? 255 : alpha);
+        stroke.setStrokeWidth(Math.max(2f, r * 0.045f));
+        canvas.drawCircle(x, y, r, stroke);
+
+        // knob, offset by however far the thumb has pushed it
+        float kx = x;
+        float ky = y;
+        final float[] pos = currentStickPos(c);
+        if (pos != null) {
+            final float travel = r * STICK_TRAVEL;
+            float dx = (pos[0] - x) / travel;
+            float dy = (pos[1] - y) / travel;
+            final float mag = (float) Math.hypot(dx, dy);
+            if (mag > 1f) {
+                dx /= mag;
+                dy /= mag;
+            }
+            kx = x + dx * r * KNOB_THROW;
+            ky = y + dy * r * KNOB_THROW;
+        }
+
+        fill.setAlpha((int) (alpha * (pos != null ? 0.72f : 0.4f)));
+        canvas.drawCircle(kx, ky, r * 0.38f, fill);
+        stroke.setAlpha((int) (alpha * 0.9f));
+        stroke.setStrokeWidth(Math.max(2f, r * 0.035f));
+        canvas.drawCircle(kx, ky, r * 0.38f, stroke);
+    }
+
+    private float[] currentStickPos(TouchLayout.Control c) {
+        for (int i = 0; i < owned.size(); ++i) {
+            if (owned.valueAt(i) == c) {
+                return stickPos.get(owned.keyAt(i));
+            }
+        }
+        return null;
     }
 
     private boolean isPressed(TouchLayout.Control c) {
