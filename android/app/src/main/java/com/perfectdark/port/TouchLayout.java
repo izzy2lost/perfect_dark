@@ -53,6 +53,11 @@ public final class TouchLayout {
         TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT
     }
 
+    /** Shape variety is the point of an expressive layout: triggers read differently to buttons. */
+    public enum Shape {
+        CIRCLE, PILL
+    }
+
     public static final class Control {
         public final String id;
         /** what the control does, in words */
@@ -61,6 +66,7 @@ public final class TouchLayout {
         public final String subLabel;
         public final Kind kind;
         public final Anchor anchor;
+        public final Shape shape;
         public final int mask;
         public final int keyCode;
 
@@ -75,11 +81,17 @@ public final class TouchLayout {
 
         Control(String id, String label, String subLabel, Kind kind, Anchor anchor,
                 int mask, int keyCode, float dx, float dy, float radius, boolean enabled) {
+            this(id, label, subLabel, kind, anchor, Shape.CIRCLE, mask, keyCode, dx, dy, radius, enabled);
+        }
+
+        Control(String id, String label, String subLabel, Kind kind, Anchor anchor, Shape shape,
+                int mask, int keyCode, float dx, float dy, float radius, boolean enabled) {
             this.id = id;
             this.label = label;
             this.subLabel = subLabel;
             this.kind = kind;
             this.anchor = anchor;
+            this.shape = shape;
             this.mask = mask;
             this.keyCode = keyCode;
             this.dx = this.defDx = dx;
@@ -102,7 +114,7 @@ public final class TouchLayout {
 
     private static final String PREFS = "touch_controls";
     // bumped when the default layout changes shape, so an old save cannot resurrect a bad one
-    private static final int LAYOUT_VERSION = 5;
+    private static final int LAYOUT_VERSION = 6;
     private static final String KEY_VERSION = "layout_version";
     private static final String KEY_LAYOUT = "layout";
     private static final String KEY_OPACITY = "opacity";
@@ -140,10 +152,10 @@ public final class TouchLayout {
                 CONT_C_RIGHT, 0, 50, 108, 26, true));
 
         // Fire and aim go along the top edge under the index fingers.
-        controls.add(new Control("aim", "AIM", "R", Kind.BUTTON, Anchor.TOP_LEFT,
-                CONT_R, 0, 118, 44, 33, true));
-        controls.add(new Control("fire", "FIRE", "Z", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_Z, 0, 112, 44, 36, true));
+        controls.add(new Control("aim", "AIM", "R", Kind.BUTTON, Anchor.TOP_LEFT, Shape.PILL,
+                CONT_R, 0, 122, 44, 33, true));
+        controls.add(new Control("fire", "FIRE", "Z", Kind.BUTTON, Anchor.TOP_RIGHT, Shape.PILL,
+                CONT_Z, 0, 126, 44, 36, true));
 
         // Face buttons, inboard of the C diamond.
         controls.add(new Control("use", "USE", "A", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
@@ -163,9 +175,9 @@ public final class TouchLayout {
 
         // Occasional actions live on the top edge rather than over the play area.
         controls.add(new Control("altfire", "ALT", "L", Kind.BUTTON, Anchor.TOP_LEFT,
-                CONT_L, 0, 196, 44, 26, true));
+                CONT_L, 0, 214, 44, 26, true));
         controls.add(new Control("prev", "PREV", "D-L", Kind.BUTTON, Anchor.TOP_RIGHT,
-                CONT_LEFT, 0, 258, 42, 24, true));
+                CONT_LEFT, 0, 272, 42, 24, true));
 
         // System row.
         controls.add(new Control("hide", "\u25CE", "", Kind.TOGGLE, Anchor.TOP_LEFT,
@@ -173,7 +185,7 @@ public final class TouchLayout {
         controls.add(new Control("start", "START", "", Kind.BUTTON, Anchor.TOP_RIGHT,
                 CONT_START, 0, 38, 38, 23, true));
         controls.add(new Control("console", "~", "", Kind.KEY, Anchor.TOP_RIGHT,
-                0, android.view.KeyEvent.KEYCODE_GRAVE, 190, 40, 20, true));
+                0, android.view.KeyEvent.KEYCODE_GRAVE, 208, 40, 20, true));
     }
 
     public List<Control> getControls() {

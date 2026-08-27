@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Perfect Dark</string>
+    <string name="hero_subtitle">Native port · Android</string>
+    <string name="rom">ROM</string>
 
     <string name="play">Play</string>
     <string name="select_rom">Select ROM</string>

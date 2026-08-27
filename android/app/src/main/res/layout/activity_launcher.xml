@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/launcherScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/pd_background"
+    android:background="?android:attr/colorBackground"
     android:clipToPadding="false"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:scrollbars="none">
 
     <!-- padding is applied in code so it can absorb the status bar, navigation bar and cutout -->
     <LinearLayout
@@ -14,136 +16,203 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Hero -->
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textColor="#E8E8F0"
-            android:textSize="26sp"
-            android:textStyle="bold"/>
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="20dp">
+
+            <ImageView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginEnd="16dp"
+                android:contentDescription="@string/app_name"
+                android:src="@mipmap/ic_launcher"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_name"
+                    android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/heroSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/hero_subtitle"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="?attr/colorPrimary"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Play -->
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/playButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:minHeight="68dp"
+            android:text="@string/play"
+            android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+            android:textColor="?attr/colorOnPrimary"
+            android:textStyle="bold"
+            app:cornerRadius="30dp"
+            app:icon="@android:drawable/ic_media_play"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp"
+            app:iconSize="26dp"/>
 
         <!-- ROM -->
 
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/missingRomContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="18dp">
+            style="@style/PdCard">
 
-            <TextView
-                android:id="@+id/infoText"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#B9B9C6"
-                android:textSize="15sp"
-                android:text="@string/rom_missing"/>
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/pickRomButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="@string/select_rom"/>
-        </LinearLayout>
+                <TextView
+                    style="@style/PdSectionHeader"
+                    android:text="@string/rom"/>
 
-        <Button
-            android:id="@+id/playButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:paddingTop="14dp"
-            android:paddingBottom="14dp"
-            android:text="@string/play"
-            android:textSize="18sp"
-            android:textStyle="bold"/>
+                <TextView
+                    android:id="@+id/infoText"
+                    style="@style/PdBody"
+                    android:text="@string/rom_missing"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/pickRomButton"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/select_rom"
+                    app:cornerRadius="22dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Mods -->
 
-        <TextView
-            style="@style/PdSectionHeader"
-            android:text="@string/mods"/>
+        <com.google.android.material.card.MaterialCardView style="@style/PdCard">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#8A8A99"
-            android:textSize="13sp"
-            android:text="@string/mods_hint"/>
-
-        <RadioGroup
-            android:id="@+id/modGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <Button
-                android:id="@+id/importModButton"
-                android:layout_width="0dp"
-                android:layout_weight="1"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/import_mod"/>
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/deleteModButton"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/delete_mod"/>
-        </LinearLayout>
+                <TextView
+                    style="@style/PdSectionHeader"
+                    android:text="@string/mods"/>
+
+                <TextView
+                    style="@style/PdBody"
+                    android:text="@string/mods_hint"/>
+
+                <RadioGroup
+                    android:id="@+id/modGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical"/>
+
+                <com.google.android.material.button.MaterialButtonGroup
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/importModButton"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/import_mod"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/deleteModButton"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/delete_mod"/>
+                </com.google.android.material.button.MaterialButtonGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- On-screen controls -->
 
-        <TextView
-            style="@style/PdSectionHeader"
-            android:text="@string/onscreen_controls"/>
+        <com.google.android.material.card.MaterialCardView style="@style/PdCard">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#8A8A99"
-            android:textSize="13sp"
-            android:text="@string/controls_hint"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/opacityLabel"
-            style="@style/PdSliderLabel"
-            android:text="@string/opacity"/>
+                <TextView
+                    style="@style/PdSectionHeader"
+                    android:text="@string/onscreen_controls"/>
 
-        <SeekBar
-            android:id="@+id/opacitySeek"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="100"/>
+                <TextView
+                    style="@style/PdBody"
+                    android:text="@string/controls_hint"/>
 
-        <Button
-            android:id="@+id/resetLayoutButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/reset_layout"/>
+                <TextView
+                    android:id="@+id/opacityLabel"
+                    style="@style/PdSliderLabel"
+                    android:layout_marginTop="18dp"
+                    android:text="@string/opacity"/>
+
+                <com.google.android.material.slider.Slider
+                    android:id="@+id/opacitySeek"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:stepSize="1"
+                    android:valueFrom="0"
+                    android:valueTo="100"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/resetLayoutButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/reset_layout"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Netplay -->
 
-        <TextView
-            style="@style/PdSectionHeader"
-            android:text="@string/netplay"/>
+        <com.google.android.material.card.MaterialCardView style="@style/PdCard">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:textColor="#8A8A99"
-            android:textSize="13sp"
-            android:text="@string/netplay_hint"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/PdSectionHeader"
+                    android:text="@string/netplay"/>
+
+                <TextView
+                    style="@style/PdBody"
+                    android:text="@string/netplay_hint"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </ScrollView>

@@ -1,11 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-    <color name="pd_background">#0B0B0F</color>
+    <!--
+        Perfect Dark's HUD is cyan on near-black, so the app takes its accent from the game
+        rather than from the stock Material palette.
+    -->
+    <color name="pd_primary">#67D8F5</color>
+    <color name="pd_on_primary">#00344A</color>
+    <color name="pd_primary_container">#004C69</color>
+    <color name="pd_on_primary_container">#BFE9FF</color>
+
+    <color name="pd_secondary">#B4CAD6</color>
+    <color name="pd_on_secondary">#1F333D</color>
+    <color name="pd_secondary_container">#354A54</color>
+    <color name="pd_on_secondary_container">#D0E6F2</color>
+
+    <color name="pd_tertiary">#C6C2EA</color>
+    <color name="pd_on_tertiary">#2E2D4D</color>
+
+    <color name="pd_error">#FFB4AB</color>
+    <color name="pd_on_error">#690005</color>
+
+    <color name="pd_background">#0B1114</color>
+    <color name="pd_on_background">#DFE3E6</color>
+    <color name="pd_surface">#0B1114</color>
+    <color name="pd_on_surface">#DFE3E6</color>
+    <color name="pd_surface_variant">#3F484C</color>
+    <color name="pd_on_surface_variant">#BFC8CD</color>
+    <color name="pd_surface_container_low">#141B1E</color>
+    <color name="pd_surface_container">#182024</color>
+    <color name="pd_surface_container_high">#222A2E</color>
+    <color name="pd_outline">#899297</color>
+    <color name="pd_outline_variant">#3F484C</color>
 </resources>

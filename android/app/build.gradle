@@ -112,7 +112,10 @@ tasks.withType(JavaCompile).configureEach {
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'com.google.android.material:material:1.12.0'
+    // 1.14 is the Material 3 Expressive release but requires minSdk 23; 1.13 is the
+    // newest that still supports minSdk 21, so the expressive look is built on its
+    // Material 3 styles by hand (large corners, heavy type, tonal surfaces).
+    implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'

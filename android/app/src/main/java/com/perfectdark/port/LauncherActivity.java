@@ -6,22 +6,23 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
-import android.widget.Button;
-import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.radiobutton.MaterialRadioButton;
+import com.google.android.material.slider.Slider;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -49,7 +50,7 @@ public class LauncherActivity extends AppCompatActivity {
 
     private View missingRomView;
     private TextView infoText;
-    private Button playButton;
+    private MaterialButton playButton;
     private RadioGroup modGroup;
     private TextView opacityLabel;
 
@@ -233,7 +234,7 @@ public class LauncherActivity extends AppCompatActivity {
             computed = "<error>";
         }
 
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Wrong ROM version")
                 .setMessage("Expected NTSC-U v1.1 (md5 " + MD5_NTSC_V11 + ")\n"
                         + "Also allowed: v1.0 (md5 " + MD5_NTSC_V10 + ")\n\nGot: " + computed)
@@ -248,7 +249,7 @@ public class LauncherActivity extends AppCompatActivity {
     }
 
     private void showV10WarningDialog(File target) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("NTSC v1.0 detected")
                 .setMessage("The port targets NTSC-U v1.1. v1.0 mostly works, but some content may not.")
                 .setPositiveButton("Play", (d, w) -> startGame())
@@ -287,19 +288,19 @@ public class LauncherActivity extends AppCompatActivity {
         modGroup.setOnCheckedChangeListener(null);
         modGroup.removeAllViews();
 
-        RadioButton none = new RadioButton(this);
+        MaterialRadioButton none = new MaterialRadioButton(this);
         none.setId(View.generateViewId());
         none.setText(getString(R.string.no_mod));
-        none.setTextColor(0xFFD8D8E2);
+        none.setMinimumHeight(Math.round(48 * getResources().getDisplayMetrics().density));
         none.setTag("");
         modGroup.addView(none);
 
         for (ModManager.ModInfo m : mods) {
-            RadioButton rb = new RadioButton(this);
+            MaterialRadioButton rb = new MaterialRadioButton(this);
             rb.setId(View.generateViewId());
             rb.setText(m.name + "  (" + ModManager.humanSize(m.sizeBytes)
                     + (m.hasConfig ? ", modconfig.txt" : "") + ")");
-            rb.setTextColor(0xFFD8D8E2);
+            rb.setMinimumHeight(Math.round(48 * getResources().getDisplayMetrics().density));
             rb.setTag(m.name);
             modGroup.addView(rb);
         }
@@ -358,7 +359,7 @@ public class LauncherActivity extends AppCompatActivity {
                     refreshModList();
                     Toast.makeText(this, "Installed and selected: " + installed, Toast.LENGTH_LONG).show();
                 } else {
-                    new AlertDialog.Builder(this)
+                    new MaterialAlertDialogBuilder(this)
                             .setTitle("Could not import mod")
                             .setMessage(failure == null ? "Unknown error" : failure)
                             .setPositiveButton("OK", null)
@@ -374,7 +375,7 @@ public class LauncherActivity extends AppCompatActivity {
             Toast.makeText(this, "Select a mod to delete", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Delete " + active + "?")
                 .setMessage("This removes the mod's files from this device.")
                 .setPositiveButton("Delete", (d, w) -> {
@@ -409,27 +410,22 @@ public class LauncherActivity extends AppCompatActivity {
     // ---------------------------------------------------------------- touch settings
 
     private void setUpSliders() {
-        SeekBar opacity = findViewById(R.id.opacitySeek);
-
-        opacity.setOnSeekBarChangeListener(new SimpleSeekListener() {
-            @Override
-            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                touchLayout.opacity = OPACITY_MIN + (1f - OPACITY_MIN) * (progress / 100f);
-                updateSliderLabels();
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar bar) {
-                touchLayout.save();
-            }
+        Slider opacity = findViewById(R.id.opacitySeek);
+        opacity.addOnChangeListener((slider, value, fromUser) -> {
+            touchLayout.opacity = OPACITY_MIN + (1f - OPACITY_MIN) * (value / 100f);
+            updateSliderLabels();
         });
-
+        opacity.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+            @Override public void onStartTrackingTouch(Slider slider) { }
+            @Override public void onStopTrackingTouch(Slider slider) { touchLayout.save(); }
+        });
         syncSliders();
     }
 
     private void syncSliders() {
-        SeekBar opacity = findViewById(R.id.opacitySeek);
-        opacity.setProgress(Math.round((touchLayout.opacity - OPACITY_MIN) / (1f - OPACITY_MIN) * 100f));
+        Slider opacity = findViewById(R.id.opacitySeek);
+        final float pct = (touchLayout.opacity - OPACITY_MIN) / (1f - OPACITY_MIN) * 100f;
+        opacity.setValue(Math.max(0f, Math.min(100f, Math.round(pct))));
         updateSliderLabels();
     }
 
@@ -438,8 +434,4 @@ public class LauncherActivity extends AppCompatActivity {
                 getString(R.string.opacity), Math.round(touchLayout.opacity * 100)));
     }
 
-    private abstract static class SimpleSeekListener implements SeekBar.OnSeekBarChangeListener {
-        @Override public void onStartTrackingTouch(SeekBar bar) { }
-        @Override public void onStopTrackingTouch(SeekBar bar) { }
-    }
 }

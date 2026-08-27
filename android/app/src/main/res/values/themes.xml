@@ -1,46 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+
     <!--
-        Base application theme. AppCompat reads the unprefixed windowActionBar/windowNoTitle
-        attributes, not the android: ones, so the NoActionBar parent is what actually keeps the
-        title bar away.
+        Material 3 Expressive, in a dark scheme keyed to Perfect Dark's cyan HUD. AppCompat
+        reads the unprefixed windowActionBar/windowNoTitle attributes, not the android: ones,
+        so the NoActionBar parent is what actually keeps the title bar away.
     -->
-    <style name="Theme.PerfectDark" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.PerfectDark" parent="Theme.Material3.Dark.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorPrimary">@color/pd_primary</item>
+        <item name="colorOnPrimary">@color/pd_on_primary</item>
+        <item name="colorPrimaryContainer">@color/pd_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/pd_on_primary_container</item>
+
+        <item name="colorSecondary">@color/pd_secondary</item>
+        <item name="colorOnSecondary">@color/pd_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/pd_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/pd_on_secondary_container</item>
+
+        <item name="colorTertiary">@color/pd_tertiary</item>
+        <item name="colorOnTertiary">@color/pd_on_tertiary</item>
+
+        <item name="colorError">@color/pd_error</item>
+        <item name="colorOnError">@color/pd_on_error</item>
+
+        <item name="android:colorBackground">@color/pd_background</item>
+        <item name="colorOnBackground">@color/pd_on_background</item>
+        <item name="colorSurface">@color/pd_surface</item>
+        <item name="colorOnSurface">@color/pd_on_surface</item>
+        <item name="colorSurfaceVariant">@color/pd_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/pd_on_surface_variant</item>
+        <item name="colorSurfaceContainerLow">@color/pd_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/pd_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/pd_surface_container_high</item>
+        <item name="colorOutline">@color/pd_outline</item>
+        <item name="colorOutlineVariant">@color/pd_outline_variant</item>
 
         <!-- the app draws edge to edge and paints its own background behind the bars -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/pd_background</item>
+
+        <item name="materialAlertDialogTheme">@style/Theme.PerfectDark.Dialog</item>
     </style>
 
     <style name="Theme.PerfectDark.Fullscreen" parent="Theme.PerfectDark">
         <item name="android:windowContentOverlay">@null</item>
     </style>
 
-    <style name="PdSectionHeader">
+    <style name="Theme.PerfectDark.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurfaceContainerHigh">@color/pd_surface_container_high</item>
+    </style>
+
+    <!-- Section heading: expressive type is larger and heavier than classic Material. -->
+    <style name="PdSectionHeader" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">26dp</item>
-        <item name="android:layout_marginBottom">4dp</item>
-        <item name="android:textColor">#E8E8F0</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
         <item name="android:textStyle">bold</item>
     </style>
 
-    <style name="PdSliderLabel">
+    <style name="PdBody" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">12dp</item>
-        <item name="android:textColor">#B9B9C6</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="android:lineSpacingMultiplier">1.15</item>
+    </style>
+
+    <style name="PdCard" parent="Widget.Material3.CardView.Filled">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">20dp</item>
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainer</item>
+        <item name="cardCornerRadius">28dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="contentPadding">20dp</item>
+    </style>
+
+    <style name="PdSliderLabel" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
 </resources>

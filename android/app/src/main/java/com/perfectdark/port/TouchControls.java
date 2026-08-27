@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.util.SparseArray;
 import android.view.InputDevice;
@@ -11,6 +12,9 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import org.libsdl.app.SDLActivity;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The on-screen controller.
@@ -31,6 +35,14 @@ public class TouchControls extends View {
     private static final float KNOB_THROW = 0.55f;
 
     private static final long EDIT_LONG_PRESS_MS = 650;
+
+    /** Matches colorPrimary / colorOnPrimary in themes.xml, so the pad reads as part of the app. */
+    private static final int ACCENT = 0xFF67D8F5;
+    private static final int ON_ACCENT = 0xFF00344A;
+
+    /** how far a pill's half-width and half-height sit from its radius */
+    private static final float PILL_W = 1.45f;
+    private static final float PILL_H = 0.86f;
 
     private final TouchLayout layout;
     private final float density;
@@ -54,6 +66,11 @@ public class TouchControls extends View {
     private int lastMask;
     private boolean gamepadPresent;
     private boolean longPressFired;
+    private boolean animating;
+
+    /** control id -> 0..1 press animation, so buttons swell and settle instead of snapping */
+    private final Map<String, Float> pressAnim = new HashMap<>();
+    private final RectF rect = new RectF();
 
     private final Runnable enterEdit = () -> {
         longPressFired = true;
@@ -137,7 +154,11 @@ public class TouchControls extends View {
             final float dx = x - px(c);
             final float dy = y - py(c);
             final float r = pr(c);
-            if (dx * dx + dy * dy > r * r) {
+            if (c.shape == TouchLayout.Shape.PILL) {
+                if (Math.abs(dx) > r * PILL_W || Math.abs(dy) > r * PILL_H) {
+                    continue;
+                }
+            } else if (dx * dx + dy * dy > r * r) {
                 continue;
             }
             if (c.isStick()) {
@@ -484,6 +505,7 @@ public class TouchControls extends View {
         }
 
         final int alpha = (int) (clamp(layout.opacity, 0.05f, 1f) * 255);
+        animating = false;
 
         for (TouchLayout.Control c : layout.getControls()) {
             if (!c.enabled) {
@@ -511,38 +533,76 @@ public class TouchControls extends View {
     private void drawButton(Canvas canvas, TouchLayout.Control c, int alpha) {
         final float x = px(c);
         final float y = py(c);
-        final float r = pr(c);
-        final boolean pressed = isPressed(c);
         final boolean selected = editMode && c == editTarget;
+        final float t = pressAnim(c);
+        // a pressed control swells slightly; the eased value keeps it from snapping
+        final float r = pr(c) * (1f + 0.09f * t);
 
-        fill.setColor(Color.WHITE);
-        fill.setAlpha(pressed ? (int) (alpha * 0.8f) : (int) (alpha * 0.22f));
-        canvas.drawCircle(x, y, r, fill);
+        final int baseAlpha = (int) (alpha * 0.20f);
+        final int litAlpha = (int) (Math.min(255, alpha + 60) * 0.92f);
 
-        stroke.setColor(selected ? Color.YELLOW : Color.WHITE);
-        stroke.setAlpha(selected ? 255 : alpha);
-        stroke.setStrokeWidth(Math.max(2f, r * 0.055f));
-        canvas.drawCircle(x, y, r, stroke);
+        fill.setColor(blend(Color.WHITE, ACCENT, t));
+        fill.setAlpha((int) (baseAlpha + (litAlpha - baseAlpha) * t));
+
+        stroke.setColor(selected ? Color.YELLOW : blend(Color.WHITE, ACCENT, 0.45f + 0.55f * t));
+        stroke.setAlpha(selected ? 255 : (int) (alpha * (0.75f + 0.25f * t)));
+        stroke.setStrokeWidth(Math.max(2f, r * 0.05f));
+
+        if (c.shape == TouchLayout.Shape.PILL) {
+            rect.set(x - r * PILL_W, y - r * PILL_H, x + r * PILL_W, y + r * PILL_H);
+            final float rad = r * PILL_H;
+            canvas.drawRoundRect(rect, rad, rad, fill);
+            canvas.drawRoundRect(rect, rad, rad, stroke);
+        } else {
+            canvas.drawCircle(x, y, r, fill);
+            canvas.drawCircle(x, y, r, stroke);
+        }
 
         if (c.label.isEmpty()) {
             return;
         }
 
-        text.setColor(Color.WHITE);
-        text.setAlpha(Math.min(255, alpha + 90));
+        // label flips to the dark on-accent colour once the fill lights up
+        final int labelColour = blend(Color.WHITE, ON_ACCENT, Math.max(0f, (t - 0.45f) / 0.55f));
+        text.setColor(labelColour);
+        text.setAlpha(Math.min(255, alpha + 95));
 
+        final float maxW = (c.shape == TouchLayout.Shape.PILL ? r * PILL_W : r) * 1.62f;
         final boolean twoLine = !c.subLabel.isEmpty();
-        final float size = fitTextSize(c.label, r * 1.62f, r * (twoLine ? 0.72f : 0.95f));
+        final float size = fitTextSize(c.label, maxW, r * (twoLine ? 0.68f : 0.92f));
         text.setTextSize(size);
 
         if (twoLine) {
-            canvas.drawText(c.label, x, y - r * 0.02f, text);
-            text.setTextSize(size * 0.72f);
+            canvas.drawText(c.label, x, y - r * 0.03f, text);
+            text.setTextSize(size * 0.70f);
             text.setAlpha(Math.min(255, alpha + 40));
-            canvas.drawText(c.subLabel, x, y + r * 0.58f, text);
+            canvas.drawText(c.subLabel, x, y + r * 0.55f, text);
         } else {
             canvas.drawText(c.label, x, y + size * 0.35f, text);
         }
+    }
+
+    /** Eases the control's press value toward its target and asks for another frame if moving. */
+    private float pressAnim(TouchLayout.Control c) {
+        final float target = isPressed(c) ? 1f : 0f;
+        Float cur = pressAnim.get(c.id);
+        float v = cur == null ? target : cur;
+        if (Math.abs(target - v) < 0.02f) {
+            v = target;
+        } else {
+            v += (target - v) * 0.35f;
+            animating = true;
+        }
+        pressAnim.put(c.id, v);
+        return v;
+    }
+
+    private static int blend(int from, int to, float t) {
+        t = clamp(t, 0f, 1f);
+        final int r = Math.round(Color.red(from) + (Color.red(to) - Color.red(from)) * t);
+        final int g = Math.round(Color.green(from) + (Color.green(to) - Color.green(from)) * t);
+        final int b = Math.round(Color.blue(from) + (Color.blue(to) - Color.blue(from)) * t);
+        return Color.rgb(r, g, b);
     }
 
     /** Largest text size at which {@code s} fits inside {@code maxWidth}, capped at {@code cap}. */
@@ -560,22 +620,28 @@ public class TouchControls extends View {
         final float y = py(c);
         final float r = pr(c);
         final boolean selected = editMode && c == editTarget;
+        final float[] pos = currentStickPos(c);
+        final boolean active = pos != null;
 
         // base
         fill.setColor(Color.WHITE);
-        fill.setAlpha((int) (alpha * 0.14f));
+        fill.setAlpha((int) (alpha * 0.11f));
         canvas.drawCircle(x, y, r, fill);
 
-        stroke.setColor(selected ? Color.YELLOW : Color.WHITE);
-        stroke.setAlpha(selected ? 255 : alpha);
-        stroke.setStrokeWidth(Math.max(2f, r * 0.045f));
+        stroke.setColor(selected ? Color.YELLOW : blend(Color.WHITE, ACCENT, active ? 0.9f : 0.4f));
+        stroke.setAlpha(selected ? 255 : (int) (alpha * (active ? 0.95f : 0.7f)));
+        stroke.setStrokeWidth(Math.max(2f, r * 0.042f));
         canvas.drawCircle(x, y, r, stroke);
+
+        // a faint inner ring marks the deadzone edge, so the throw is readable at a glance
+        stroke.setAlpha((int) (alpha * 0.25f));
+        stroke.setStrokeWidth(Math.max(1f, r * 0.02f));
+        canvas.drawCircle(x, y, r * 0.34f, stroke);
 
         // knob, offset by however far the thumb has pushed it
         float kx = x;
         float ky = y;
-        final float[] pos = currentStickPos(c);
-        if (pos != null) {
+        if (active) {
             final float travel = r * STICK_TRAVEL;
             float dx = (pos[0] - x) / travel;
             float dy = (pos[1] - y) / travel;
@@ -588,11 +654,15 @@ public class TouchControls extends View {
             ky = y + dy * r * KNOB_THROW;
         }
 
-        fill.setAlpha((int) (alpha * (pos != null ? 0.72f : 0.4f)));
-        canvas.drawCircle(kx, ky, r * 0.38f, fill);
+        final float kr = r * (active ? 0.40f : 0.36f);
+        fill.setColor(active ? ACCENT : Color.WHITE);
+        fill.setAlpha((int) (alpha * (active ? 0.85f : 0.38f)));
+        canvas.drawCircle(kx, ky, kr, fill);
+
+        stroke.setColor(active ? ACCENT : Color.WHITE);
         stroke.setAlpha((int) (alpha * 0.9f));
-        stroke.setStrokeWidth(Math.max(2f, r * 0.035f));
-        canvas.drawCircle(kx, ky, r * 0.38f, stroke);
+        stroke.setStrokeWidth(Math.max(2f, r * 0.034f));
+        canvas.drawCircle(kx, ky, kr, stroke);
     }
 
     private float[] currentStickPos(TouchLayout.Control c) {
