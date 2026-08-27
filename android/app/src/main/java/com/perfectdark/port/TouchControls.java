@@ -253,7 +253,7 @@ public class TouchControls extends View {
     }
 
     /**
-     * Sticks are fixed rather than floating: deflection is measured from the control's own
+     * The stick is fixed rather than floating: deflection is measured from the control's own
      * centre, so what the player sees under their thumb is what the game is being told.
      */
     private void updateStick(TouchLayout.Control c, int id, float x, float y) {
@@ -267,11 +267,6 @@ public class TouchControls extends View {
         float dx = (x - px(c)) / travel;
         float dy = (y - py(c)) / travel;
 
-        if (c.kind == TouchLayout.Kind.STICK_LOOK) {
-            dx *= layout.lookSensitivity;
-            dy *= layout.lookSensitivity;
-        }
-
         final float mag = (float) Math.hypot(dx, dy);
         if (mag < DEADZONE) {
             dx = dy = 0f;
@@ -283,16 +278,14 @@ public class TouchControls extends View {
         }
 
         // Android's y grows downwards; the N64 stick's does not.
-        nativeSetStick(c.kind == TouchLayout.Kind.STICK_MOVE ? 0 : 1, dx, -dy);
+        nativeSetStick(dx, -dy);
     }
 
     private void releasePointer(int id, TouchLayout.Control c) {
         owned.remove(id);
         stickPos.remove(id);
-        if (c.kind == TouchLayout.Kind.STICK_MOVE) {
-            nativeSetStick(0, 0f, 0f);
-        } else if (c.kind == TouchLayout.Kind.STICK_LOOK) {
-            nativeSetStick(1, 0f, 0f);
+        if (c.isStick()) {
+            nativeSetStick(0f, 0f);
         } else if (c.kind == TouchLayout.Kind.KEY) {
             SDLActivity.onNativeKeyUp(c.keyCode);
         } else if (c.kind == TouchLayout.Kind.TOGGLE) {
@@ -312,8 +305,7 @@ public class TouchControls extends View {
         }
         owned.clear();
         stickPos.clear();
-        nativeSetStick(0, 0f, 0f);
-        nativeSetStick(1, 0f, 0f);
+        nativeSetStick(0f, 0f);
     }
 
     private void pushState() {
@@ -624,6 +616,6 @@ public class TouchControls extends View {
     // ---------------------------------------------------------------- native
 
     private static native void nativeSetButtons(int contMask);
-    private static native void nativeSetStick(int stick, float x, float y);
+    private static native void nativeSetStick(float x, float y);
     private static native void nativeSetActive(boolean active);
 }

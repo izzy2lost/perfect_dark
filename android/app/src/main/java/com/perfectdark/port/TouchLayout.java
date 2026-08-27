@@ -34,14 +34,17 @@ public final class TouchLayout {
     public static final int CONT_X       = 0x00000040; // CONT_EXTRA0
     public static final int CONT_L       = 0x00000020;
     public static final int CONT_R       = 0x00000010;
+    public static final int CONT_C_UP    = 0x00000008; // CONT_E
+    public static final int CONT_C_DOWN  = 0x00000004; // CONT_D
+    public static final int CONT_C_LEFT  = 0x00000002; // CONT_C
+    public static final int CONT_C_RIGHT = 0x00000001; // CONT_F
 
     /** Port-specific extra bits; see the control table in README.md. */
     public static final int CONT_CROUCH_CYCLE = 0x80000000;
 
     public enum Kind {
         BUTTON,      // holds a CONT_ bit while pressed
-        STICK_MOVE,  // left analog stick
-        STICK_LOOK,  // look stick: C buttons or right stick, depending on the port's config
+        STICK_MOVE,  // the analog stick
         KEY,         // injects an Android keycode into SDL (used for the console)
         TOGGLE       // hides/shows the overlay so taps reach the game surface directly
     }
@@ -93,24 +96,22 @@ public final class TouchLayout {
         }
 
         public boolean isStick() {
-            return kind == Kind.STICK_MOVE || kind == Kind.STICK_LOOK;
+            return kind == Kind.STICK_MOVE;
         }
     }
 
     private static final String PREFS = "touch_controls";
     // bumped when the default layout changes shape, so an old save cannot resurrect a bad one
-    private static final int LAYOUT_VERSION = 4;
+    private static final int LAYOUT_VERSION = 5;
     private static final String KEY_VERSION = "layout_version";
     private static final String KEY_LAYOUT = "layout";
     private static final String KEY_OPACITY = "opacity";
-    private static final String KEY_LOOK_SENS = "look_sensitivity";
     private static final String KEY_ENABLED = "enabled";
 
     private final List<Control> controls = new ArrayList<>();
     private final SharedPreferences prefs;
 
     public float opacity = 0.5f;
-    public float lookSensitivity = 1.0f;
     public boolean enabled = true;
 
     public TouchLayout(Context ctx) {
@@ -122,31 +123,39 @@ public final class TouchLayout {
     private void buildDefaults() {
         controls.clear();
 
-        // Twin sticks in the bottom corners, where the thumbs already rest.
+        // One analog stick, exactly like the N64 pad: it drives all movement, and how it
+        // splits between walking and turning is the game's own Control Style setting.
         controls.add(new Control("move", "", "", Kind.STICK_MOVE, Anchor.BOTTOM_LEFT,
                 0, 0, 105, 105, 68, true));
-        controls.add(new Control("look", "", "", Kind.STICK_LOOK, Anchor.BOTTOM_RIGHT,
-                0, 0, 105, 105, 68, true));
 
-        // Fire and aim go along the top edge under the index fingers, since both thumbs are
-        // occupied by the sticks.
+        // The C buttons, in their N64 diamond. In the default control style these look up and
+        // down and sidestep left and right -- the job a second stick would otherwise do.
+        controls.add(new Control("cup", "C\u2191", "", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
+                CONT_C_UP, 0, 108, 166, 26, true));
+        controls.add(new Control("cdown", "C\u2193", "", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
+                CONT_C_DOWN, 0, 108, 50, 26, true));
+        controls.add(new Control("cleft", "C\u2190", "", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
+                CONT_C_LEFT, 0, 166, 108, 26, true));
+        controls.add(new Control("cright", "C\u2192", "", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
+                CONT_C_RIGHT, 0, 50, 108, 26, true));
+
+        // Fire and aim go along the top edge under the index fingers.
         controls.add(new Control("aim", "AIM", "R", Kind.BUTTON, Anchor.TOP_LEFT,
                 CONT_R, 0, 118, 44, 33, true));
         controls.add(new Control("fire", "FIRE", "Z", Kind.BUTTON, Anchor.TOP_RIGHT,
                 CONT_Z, 0, 112, 44, 36, true));
 
-        // Face buttons, in a block inboard of the look stick where the right thumb reaches.
-        // Radii stay at or above 24dp, which is the smallest comfortable touch target.
+        // Face buttons, inboard of the C diamond.
         controls.add(new Control("use", "USE", "A", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_A, 0, 212, 88, 27, true));
+                CONT_A, 0, 232, 88, 27, true));
         controls.add(new Control("back", "BACK", "B", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_B, 0, 212, 162, 25, true));
+                CONT_B, 0, 232, 162, 25, true));
         controls.add(new Control("reload", "RELOAD", "X", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_X, 0, 282, 78, 25, true));
+                CONT_X, 0, 302, 78, 25, true));
         controls.add(new Control("next", "NEXT", "Y", Kind.BUTTON, Anchor.BOTTOM_RIGHT,
-                CONT_Y, 0, 282, 152, 25, true));
+                CONT_Y, 0, 302, 152, 25, true));
 
-        // Left-hand extras, stacked beside the move stick.
+        // Left-hand extras, stacked beside the stick.
         controls.add(new Control("crouch", "CROUCH", "", Kind.BUTTON, Anchor.BOTTOM_LEFT,
                 CONT_CROUCH_CYCLE, 0, 212, 84, 26, true));
         controls.add(new Control("radial", "WEAPON", "D-D", Kind.BUTTON, Anchor.BOTTOM_LEFT,
@@ -159,7 +168,7 @@ public final class TouchLayout {
                 CONT_LEFT, 0, 258, 42, 24, true));
 
         // System row.
-        controls.add(new Control("hide", "◎", "", Kind.TOGGLE, Anchor.TOP_LEFT,
+        controls.add(new Control("hide", "\u25CE", "", Kind.TOGGLE, Anchor.TOP_LEFT,
                 0, 0, 36, 36, 20, true));
         controls.add(new Control("start", "START", "", Kind.BUTTON, Anchor.TOP_RIGHT,
                 CONT_START, 0, 38, 38, 23, true));
@@ -176,14 +185,12 @@ public final class TouchLayout {
             c.reset();
         }
         opacity = 0.5f;
-        lookSensitivity = 1.0f;
         enabled = true;
         save();
     }
 
     private void load() {
         opacity = prefs.getFloat(KEY_OPACITY, opacity);
-        lookSensitivity = prefs.getFloat(KEY_LOOK_SENS, lookSensitivity);
         enabled = prefs.getBoolean(KEY_ENABLED, enabled);
 
         if (prefs.getInt(KEY_VERSION, 0) != LAYOUT_VERSION) {
@@ -238,7 +245,6 @@ public final class TouchLayout {
                 .putInt(KEY_VERSION, LAYOUT_VERSION)
                 .putString(KEY_LAYOUT, root.toString())
                 .putFloat(KEY_OPACITY, opacity)
-                .putFloat(KEY_LOOK_SENS, lookSensitivity)
                 .putBoolean(KEY_ENABLED, enabled)
                 .apply();
     }

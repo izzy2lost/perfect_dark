@@ -102,11 +102,17 @@ connected. In game:
   when you are done. The layout is remembered per device;
 * opacity and look sensitivity are on the launcher screen, along with `Reset control layout`.
 
-The default layout is twin sticks in the bottom corners -- left moves, right looks -- with `FIRE`
-and `AIM` along the top edge for the index fingers, since both thumbs are on the sticks. Every
-button is labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z,
-`AIM`/R, `USE`/A, `BACK`/B, `RELOAD`/X, `NEXT`/Y, `PREV`/D-Left, `ALT`/L, `WEAPON`/D-Down, plus
-`CROUCH`, `START` and `~` for the console.
+The default layout mirrors the N64 pad: a single analog stick bottom left driving all movement,
+and the C buttons in their diamond bottom right. How the stick splits between walking and turning
+is the game's own `Control Style` setting, exactly as on hardware, and the C buttons look up and
+down and sidestep. `FIRE` and `AIM` sit along the top edge for the index fingers. Every button is
+labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z, `AIM`/R, `USE`/A,
+`BACK`/B, `RELOAD`/X, `NEXT`/Y, `PREV`/D-Left, `ALT`/L, `WEAPON`/D-Down, plus `CROUCH`, `START`
+and `~` for the console.
+
+There is deliberately no second stick. The port maps a gamepad's right stick to the game's own
+two-controller mode, which is a different control scheme from the one the N64 shipped with; the
+overlay sticks to the original.
 
 Controls are positioned in dp from the nearest screen corner rather than as a fraction of the
 viewport, so they stay the same physical size and keep their grouping from 16:9 all the way out

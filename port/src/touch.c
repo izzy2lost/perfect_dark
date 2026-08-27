@@ -9,7 +9,7 @@ static atomic_uint touchButtons;
 // Bits pressed since the last read. inputReadController() samples us once a frame, so a tap
 // that goes down and back up inside 16ms would otherwise never be seen at all.
 static atomic_uint touchLatched;
-static atomic_int touchStick[TOUCH_STICK_COUNT][2];
+static atomic_int touchStick[2];
 static atomic_int touchActive;
 
 static inline s32 touchClampStick(f32 v)
@@ -31,13 +31,10 @@ void touchSetButtons(u32 contMask)
 	}
 }
 
-void touchSetStick(s32 stick, f32 x, f32 y)
+void touchSetStick(f32 x, f32 y)
 {
-	if (stick < 0 || stick >= TOUCH_STICK_COUNT) {
-		return;
-	}
-	atomic_store_explicit(&touchStick[stick][0], touchClampStick(x), memory_order_relaxed);
-	atomic_store_explicit(&touchStick[stick][1], touchClampStick(y), memory_order_relaxed);
+	atomic_store_explicit(&touchStick[0], touchClampStick(x), memory_order_relaxed);
+	atomic_store_explicit(&touchStick[1], touchClampStick(y), memory_order_relaxed);
 }
 
 void touchSetActive(s32 active)
@@ -46,10 +43,8 @@ void touchSetActive(s32 active)
 		// make sure nothing stays held down when the overlay goes away
 		atomic_store_explicit(&touchButtons, 0u, memory_order_relaxed);
 		atomic_store_explicit(&touchLatched, 0u, memory_order_relaxed);
-		for (s32 i = 0; i < TOUCH_STICK_COUNT; ++i) {
-			atomic_store_explicit(&touchStick[i][0], 0, memory_order_relaxed);
-			atomic_store_explicit(&touchStick[i][1], 0, memory_order_relaxed);
-		}
+		atomic_store_explicit(&touchStick[0], 0, memory_order_relaxed);
+		atomic_store_explicit(&touchStick[1], 0, memory_order_relaxed);
 	}
 	atomic_store_explicit(&touchActive, active ? 1 : 0, memory_order_relaxed);
 }
@@ -63,15 +58,10 @@ u32 touchGetButtons(void)
 	return held | latched;
 }
 
-void touchGetStick(s32 stick, f32 *outX, f32 *outY)
+void touchGetStick(f32 *outX, f32 *outY)
 {
-	if (stick < 0 || stick >= TOUCH_STICK_COUNT) {
-		*outX = 0.f;
-		*outY = 0.f;
-		return;
-	}
-	*outX = (f32)atomic_load_explicit(&touchStick[stick][0], memory_order_relaxed) / TOUCH_STICK_RANGE;
-	*outY = (f32)atomic_load_explicit(&touchStick[stick][1], memory_order_relaxed) / TOUCH_STICK_RANGE;
+	*outX = (f32)atomic_load_explicit(&touchStick[0], memory_order_relaxed) / TOUCH_STICK_RANGE;
+	*outY = (f32)atomic_load_explicit(&touchStick[1], memory_order_relaxed) / TOUCH_STICK_RANGE;
 }
 
 s32 touchIsActive(void)
@@ -88,9 +78,9 @@ Java_com_perfectdark_port_TouchControls_nativeSetButtons(JNIEnv *env, jclass cls
 }
 
 JNIEXPORT void JNICALL
-Java_com_perfectdark_port_TouchControls_nativeSetStick(JNIEnv *env, jclass cls, jint stick, jfloat x, jfloat y)
+Java_com_perfectdark_port_TouchControls_nativeSetStick(JNIEnv *env, jclass cls, jfloat x, jfloat y)
 {
-	touchSetStick((s32)stick, (f32)x, (f32)y);
+	touchSetStick((f32)x, (f32)y);
 }
 
 JNIEXPORT void JNICALL

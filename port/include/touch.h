@@ -7,6 +7,9 @@
 
 // State of the on-screen controller overlay.
 //
+// The overlay mirrors a real N64 pad: one analog stick plus buttons. Looking and sidestepping
+// are the C buttons, exactly as on hardware, so there is no second stick here.
+//
 // The overlay itself lives in Java (com.perfectdark.port.TouchControls) and runs on the
 // Android UI thread, while inputReadController() runs on the SDL thread, so everything
 // here is stored atomically. Sticks are kept as fixed point in TOUCH_STICK_RANGE units
@@ -14,23 +17,17 @@
 
 #define TOUCH_STICK_RANGE 1024
 
-enum touchstick {
-	TOUCH_STICK_LEFT = 0,  // movement -> N64 analog stick
-	TOUCH_STICK_RIGHT = 1, // look     -> N64 C buttons or right stick, depending on config
-	TOUCH_STICK_COUNT
-};
-
 // called from the Java overlay
 // contMask is a bitmask of CONT_ values, ie the same layout as OSContPad.button
 void touchSetButtons(u32 contMask);
-// x and y are -1 .. 1 in N64 stick convention: +x is right, +y is UP.
-// The overlay is responsible for flipping Android's y-down screen coordinates.
-void touchSetStick(s32 stick, f32 x, f32 y);
+// The single analog stick, as on the N64 pad. x and y are -1 .. 1 in N64 convention:
+// +x is right, +y is UP. The overlay flips Android's y-down screen coordinates.
+void touchSetStick(f32 x, f32 y);
 void touchSetActive(s32 active);
 
 // called from inputReadController()
 u32 touchGetButtons(void);
-void touchGetStick(s32 stick, f32 *outX, f32 *outY);
+void touchGetStick(f32 *outX, f32 *outY);
 
 // true while the overlay is visible and driving input
 s32 touchIsActive(void);

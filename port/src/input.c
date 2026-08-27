@@ -832,29 +832,15 @@ s32 inputReadController(s32 idx, OSContPad *npad)
 	if (idx == 0 && touchIsActive()) {
 		npad->button |= touchGetButtons();
 
+		// The overlay has a single stick, like the N64 pad; looking and sidestepping come
+		// from its C buttons, which are already folded in through the mask above.
 		f32 tx, ty;
-		touchGetStick(TOUCH_STICK_LEFT, &tx, &ty);
+		touchGetStick(&tx, &ty);
 		if (tx != 0.f) {
 			npad->stick_x = (s32)(tx * 127.f);
 		}
 		if (ty != 0.f) {
 			npad->stick_y = (s32)(ty * 127.f);
-		}
-
-		touchGetStick(TOUCH_STICK_RIGHT, &tx, &ty);
-		if (cfg->stickCButtons) {
-			// look stick emulates C buttons, same thresholds as a real pad
-			if (tx < -0.5f) npad->button |= L_CBUTTONS;
-			if (tx > +0.5f) npad->button |= R_CBUTTONS;
-			if (ty > +0.5f) npad->button |= U_CBUTTONS;
-			if (ty < -0.5f) npad->button |= D_CBUTTONS;
-		} else {
-			if (tx != 0.f) {
-				npad->rstick_x = (s32)(tx * 127.f);
-			}
-			if (ty != 0.f) {
-				npad->rstick_y = (s32)(ty * 127.f);
-			}
 		}
 	}
 #endif

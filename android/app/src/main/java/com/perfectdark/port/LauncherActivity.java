@@ -45,8 +45,6 @@ public class LauncherActivity extends AppCompatActivity {
     // NTSC-U v1.0 .z64 -- allowed, but not recommended
     private static final String MD5_NTSC_V10 = "7f4171b0c8d17815be37913f535e4e93";
 
-    private static final float SENS_MIN = 0.25f;
-    private static final float SENS_MAX = 2.0f;
     private static final float OPACITY_MIN = 0.05f;
 
     private View missingRomView;
@@ -54,7 +52,6 @@ public class LauncherActivity extends AppCompatActivity {
     private Button playButton;
     private RadioGroup modGroup;
     private TextView opacityLabel;
-    private TextView sensLabel;
 
     private TouchLayout touchLayout;
     private boolean importing;
@@ -77,7 +74,6 @@ public class LauncherActivity extends AppCompatActivity {
         playButton = findViewById(R.id.playButton);
         modGroup = findViewById(R.id.modGroup);
         opacityLabel = findViewById(R.id.opacityLabel);
-        sensLabel = findViewById(R.id.sensLabel);
 
         touchLayout = new TouchLayout(this);
 
@@ -414,7 +410,6 @@ public class LauncherActivity extends AppCompatActivity {
 
     private void setUpSliders() {
         SeekBar opacity = findViewById(R.id.opacitySeek);
-        SeekBar sens = findViewById(R.id.sensSeek);
 
         opacity.setOnSeekBarChangeListener(new SimpleSeekListener() {
             @Override
@@ -429,35 +424,18 @@ public class LauncherActivity extends AppCompatActivity {
             }
         });
 
-        sens.setOnSeekBarChangeListener(new SimpleSeekListener() {
-            @Override
-            public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                touchLayout.lookSensitivity = SENS_MIN + (SENS_MAX - SENS_MIN) * (progress / 100f);
-                updateSliderLabels();
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar bar) {
-                touchLayout.save();
-            }
-        });
-
         syncSliders();
     }
 
     private void syncSliders() {
         SeekBar opacity = findViewById(R.id.opacitySeek);
-        SeekBar sens = findViewById(R.id.sensSeek);
         opacity.setProgress(Math.round((touchLayout.opacity - OPACITY_MIN) / (1f - OPACITY_MIN) * 100f));
-        sens.setProgress(Math.round((touchLayout.lookSensitivity - SENS_MIN) / (SENS_MAX - SENS_MIN) * 100f));
         updateSliderLabels();
     }
 
     private void updateSliderLabels() {
-        opacityLabel.setText(String.format(Locale.US, "%s — %d%%",
+        opacityLabel.setText(String.format(Locale.US, "%s \u2014 %d%%",
                 getString(R.string.opacity), Math.round(touchLayout.opacity * 100)));
-        sensLabel.setText(String.format(Locale.US, "%s — %.2fx",
-                getString(R.string.look_sensitivity), touchLayout.lookSensitivity));
     }
 
     private abstract static class SimpleSeekListener implements SeekBar.OnSeekBarChangeListener {

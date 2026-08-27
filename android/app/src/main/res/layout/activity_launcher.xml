@@ -124,17 +124,6 @@
             android:layout_height="wrap_content"
             android:max="100"/>
 
-        <TextView
-            android:id="@+id/sensLabel"
-            style="@style/PdSliderLabel"
-            android:text="@string/look_sensitivity"/>
-
-        <SeekBar
-            android:id="@+id/sensSeek"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="100"/>
-
         <Button
             android:id="@+id/resetLayoutButton"
             android:layout_width="wrap_content"
