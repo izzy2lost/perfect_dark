@@ -8,6 +8,9 @@ def keystorePropertiesFile = rootProject.file("keystore.properties")
 if (!keystorePropertiesFile.exists()) {
     keystorePropertiesFile = rootProject.file("android/keystore.properties")
 }
+if (!keystorePropertiesFile.exists()) {
+    keystorePropertiesFile = rootProject.file("key.properties")
+}
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }

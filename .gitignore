@@ -33,6 +33,7 @@ android/app/.cxx
 android/app/release
 
 android/keystore.properties
+android/key.properties
 android/perfectdark-release.keystore
 *.keystore
 *.jks
