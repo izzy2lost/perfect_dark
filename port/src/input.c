@@ -269,6 +269,9 @@ void inputSetDefaultKeyBinds(s32 cidx, s32 n64mode)
 		{ CK_DPAD_U, SDL_CONTROLLER_BUTTON_DPAD_UP       },
 		{ CK_DPAD_L, SDL_CONTROLLER_BUTTON_DPAD_LEFT     },
 		{ CK_DPAD_R, SDL_CONTROLLER_BUTTON_DPAD_RIGHT    },
+		// crouch rides on CONT_8000, a synthetic bit no real N64 pad has, so it cannot collide
+		// with anything in this set and is worth keeping when the PC preset is not in use
+		{ CK_8000,   SDL_CONTROLLER_BUTTON_LEFTSTICK     },
 	};
 
 	memset(binds[cidx], 0, sizeof(binds[cidx]));
@@ -351,6 +354,14 @@ static inline void inputInitController(const s32 cidx, const s32 jidx)
 		SDL_JoystickGUID guid = SDL_JoystickGetGUID(joy);
 		SDL_JoystickGetGUIDString(guid, guidStr, sizeof(guidStr));
 		sysLogPrintf(LOG_NOTE, "input: GUID for controller %d: %s", jidx, guidStr);
+	}
+
+	// the mapping decides which physical button each SDL_CONTROLLER_BUTTON_* reads, so a pad
+	// whose face buttons do nothing is nearly always a mapping problem rather than a bind one
+	char *map = SDL_GameControllerMapping(pads[cidx]);
+	if (map) {
+		sysLogPrintf(LOG_NOTE, "input: mapping for controller %d: %s", jidx, map);
+		SDL_free(map);
 	}
 }
 
@@ -803,8 +814,17 @@ s32 inputInit(void)
 
 	inputInitKeyNames();
 
+	// The bind preset has to follow the control style rather than the platform. The PC set puts
+	// the pad's B on CK_DPAD_L, because CONTROLMODE_PC has no use for the N64 B button, and its
+	// d-pad on the C buttons -- so under an N64 style, B sidesteps left instead of acting as B.
+	// The on-screen pad kept working throughout because it writes CONT_ bits straight into the
+	// button mask and never goes through a bind at all.
+	//
+	// extcontrols is the right thing to read here, not optionsGetControlMode(): configInit() has
+	// already loaded it from pd.ini by now, whereas g_PlayerConfigsArray is not filled in until a
+	// player is created and would still read as CONTROLMODE_11 for everyone.
 	for (s32 i = 0; i < INPUT_MAX_CONTROLLERS; ++i) {
-		inputSetDefaultKeyBinds(i, 0);
+		inputSetDefaultKeyBinds(i, !g_PlayerExtCfg[i % MAX_LOCAL_PLAYERS].extcontrols);
 	}
 
 	if (mouseLockMode != MLOCK_AUTO) {
