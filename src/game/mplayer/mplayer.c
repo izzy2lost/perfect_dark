@@ -129,6 +129,17 @@ struct mpweapon g_MpWeapons[NUM_MPWEAPONS] = {
 
 #ifndef PLATFORM_N64
 
+#ifdef ANDROID
+// The on-screen overlay is an N64 pad: one stick plus C buttons. PC controls put walking and
+// strafing on the *second* stick and forward/back on the C buttons, which leaves a single-stick
+// touch layout driving aim while the C buttons do the walking -- backwards. Default Android to
+// the N64 scheme (control style 1.1), where the stick walks and turns and the C buttons look
+// and sidestep. Still overridable in pd.ini and from the in-game control style menu.
+#define EXTCONTROLS_DEFAULT false
+#else
+#define EXTCONTROLS_DEFAULT true
+#endif
+
 #define PLAYER_EXT_CFG_DEFAULT { \
 	.fovy = 60.f, \
 	.fovzoommult = 1.f, \
@@ -139,7 +150,7 @@ struct mpweapon g_MpWeapons[NUM_MPWEAPONS] = {
 	.radialmenuspeed = 4.f, \
 	.crosshairsway = 1.f, \
 	.crouchmode = CROUCHMODE_TOGGLE_ANALOG, \
-	.extcontrols = true, \
+	.extcontrols = EXTCONTROLS_DEFAULT, \
 	.crosshaircolour = 0x00ff0028, \
 	.crosshairsize = 2, \
 	.crosshairhealth = CROSSHAIR_HEALTH_OFF, \

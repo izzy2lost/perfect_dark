@@ -110,9 +110,16 @@ labelled with what it does and, underneath, the N64 button it maps to: `FIRE`/Z,
 `BACK`/B, `RELOAD`/X, `NEXT`/Y, `PREV`/D-Left, `ALT`/L, `WEAPON`/D-Down, plus `CROUCH`, `START`
 and `~` for the console.
 
-There is deliberately no second stick. The port maps a gamepad's right stick to the game's own
-two-controller mode, which is a different control scheme from the one the N64 shipped with; the
-overlay sticks to the original.
+There is deliberately no second stick, and Android defaults `Game.PlayerN.ExtendedControls` to
+`0` to match. With extended ("PC") controls on, the game runs control style `CONTROLMODE_PC`,
+where walking and strafing come from the *second* stick and the C buttons step forward and back
+-- so a single-stick touch layout ends up driving aim while the C buttons do the walking. Turning
+it off selects control style 1.1, the N64 default: the stick walks and turns, and the C buttons
+look and sidestep.
+
+Set `ExtendedControls=1` in `pd.ini` if you would rather have the PC scheme with a gamepad. Note
+that `pd.ini` wins over the default, so an install that already has the file keeps whatever is in
+it; either edit that line or pick a control style from the in-game options.
 
 Controls are positioned in dp from the nearest screen corner rather than as a fraction of the
 viewport, so they stay the same physical size and keep their grouping from 16:9 all the way out
