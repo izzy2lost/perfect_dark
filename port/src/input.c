@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "system.h"
 #include "fs.h"
+#include "game/options.h"
 
 #if !SDL_VERSION_ATLEAST(2, 0, 14)
 // this was added in 2.0.14
@@ -429,11 +430,58 @@ static inline s32 inputTryController(const s32 cidx, const s32 jidx)
 	return 0;
 }
 
+// Some Android firmware registers a virtual gamepad at boot alongside the real one: this handheld
+// ships an "Xbox Wireless Controller" uhid stub with no d-pad and every analog axis clamped to a
+// 0..1 range, so it never produces usable input. SDL reports it as a game controller like any
+// other and it enumerates ahead of the built-in pad, so it takes player 1 and the pad that works
+// ends up on player 2 -- which looks exactly like "the controller does nothing". Every real pad
+// binds a d-pad, so use that to sort the plausible ones first. This only orders the candidates;
+// anything left over is still assigned, so genuinely unusual controllers keep working.
+static inline s32 inputControllerHasDpad(const s32 jidx)
+{
+	// Pads that report the d-pad as buttons show up in the generated mapping...
+	char *map = SDL_GameControllerMappingForDeviceIndex(jidx);
+	if (map) {
+		const s32 mapped = (SDL_strstr(map, "dpup:") != NULL);
+		SDL_free(map);
+		if (mapped) {
+			return 1;
+		}
+	}
+
+	// ...but SDL_CreateMappingForAndroidController() builds dpup: from the reported keycode mask
+	// alone, so a pad that exposes its d-pad only as a hat and never as DPAD keycodes would not.
+	// Fall back to the hat count for those.
+	SDL_Joystick *joy = SDL_JoystickOpen(jidx);
+	if (!joy) {
+		// nothing to judge it by; assume it is real rather than demoting it
+		return 1;
+	}
+	const s32 hasHat = (SDL_JoystickNumHats(joy) > 0);
+	SDL_JoystickClose(joy);
+	return hasHat;
+}
+
 static inline void inputInitAllControllers(void)
 {
 	SDL_GameControllerUpdate();
 
 	numJoysticks = SDL_NumJoysticks();
+
+	// Log everything SDL enumerated, not just what ends up assigned, so a pad that silently
+	// loses player 1 to a virtual stub is visible in the log instead of being guesswork.
+	s32 haveRealPad = 0;
+	for (s32 jidx = 0; jidx < numJoysticks; ++jidx) {
+		if (!SDL_IsGameController(jidx)) {
+			sysLogPrintf(LOG_NOTE, "input: joystick %d: '%s' (no mapping, ignored)", jidx,
+				SDL_JoystickNameForIndex(jidx));
+			continue;
+		}
+		const s32 real = inputControllerHasDpad(jidx);
+		haveRealPad |= real;
+		sysLogPrintf(LOG_NOTE, "input: joystick %d: '%s' (game controller, %s)", jidx,
+			SDL_JoystickNameForIndex(jidx), real ? "has a d-pad" : "no d-pad, deprioritised");
+	}
 
 	connectedMask = 1; // always report first controller as connected
 
@@ -442,7 +490,11 @@ static inline void inputInitAllControllers(void)
 	for (s32 cidx = 0; cidx < INPUT_MAX_CONTROLLERS; ++cidx) {
 		const s32 jidx = padsCfg[cidx].deviceIndex;
 		if (jidx >= 0 && jidx < numJoysticks) {
-			if (SDL_IsGameController(jidx) && inputControllerGetIndexByDeviceIndex(jidx) < 0) {
+			// The saved index is normally whatever autofill picked last time rather than a
+			// deliberate choice, and joystick indices shift between runs, so don't let a stale
+			// one keep player 1 pinned to a stub while a real pad is sitting there unassigned.
+			if (SDL_IsGameController(jidx) && inputControllerGetIndexByDeviceIndex(jidx) < 0
+					&& (inputControllerHasDpad(jidx) || !haveRealPad)) {
 				// using the full assign function in case user sets same index for several players
 				if (inputTryController(cidx, jidx)) {
 					// success
@@ -454,9 +506,16 @@ static inline void inputInitAllControllers(void)
 		}
 	}
 
-	// now try autofilling the rest, starting with firstController
-	for (s32 jidx = 0; jidx < numJoysticks; ++jidx) {
-		if (SDL_IsGameController(jidx) && inputControllerGetIndexByDeviceIndex(jidx) < 0) {
+	// now try autofilling the rest, starting with firstController; pads with a d-pad go round
+	// first so a virtual stub can only ever pick up a slot nothing real wanted
+	for (s32 pass = 0; pass < 2; ++pass) {
+		for (s32 jidx = 0; jidx < numJoysticks; ++jidx) {
+			if (!SDL_IsGameController(jidx) || inputControllerGetIndexByDeviceIndex(jidx) >= 0) {
+				continue;
+			}
+			if (inputControllerHasDpad(jidx) != (pass == 0)) {
+				continue;
+			}
 			for (s32 cidx = firstController; cidx < INPUT_MAX_CONTROLLERS; ++cidx) {
 				if (inputTryController(cidx, jidx)) {
 					break;
@@ -475,6 +534,12 @@ static int inputEventFilter(void *data, SDL_Event *event)
 {
 	switch (event->type) {
 		case SDL_CONTROLLERDEVICEADDED:
+			// SDL queues an ADDED for every pad that already existed when the subsystem started,
+			// which inputInitAllControllers() has assigned by now; without this the same physical
+			// device is opened a second time into the next free slot.
+			if (inputControllerGetIndexByDeviceIndex(event->cdevice.which) >= 0) {
+				break;
+			}
 			for (s32 i = firstController; i < INPUT_MAX_CONTROLLERS; ++i) {
 				if (!pads[i]) {
 					pads[i] = SDL_GameControllerOpen(event->cdevice.which);
@@ -747,7 +812,9 @@ s32 inputInit(void)
 	}
 
 	// update the axis maps
-	// NOTE: by default sticks get swapped for 1.2: "right stick" here means left stick on your controller
+	// NOTE: swapping is on by default, so axisMap[0] is your right stick and axisMap[1] your left.
+	// inputReadController() decides which of the two the game's stick and rstick get, since that
+	// depends on the control style.
 	for (s32 i = 0; i < INPUT_MAX_CONTROLLERS; ++i) {
 		inputControllerSetSticksSwapped(i, padsCfg[i].swapSticks);
 	}
@@ -849,41 +916,49 @@ s32 inputReadController(s32 idx, OSContPad *npad)
 		return 0;
 	}
 
-	s32 leftX = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[0][0]);
-	s32 leftY = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[0][1]);
-	s32 rightX = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[1][0]);
-	s32 rightY = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[1][1]);
+	// Which physical stick belongs on which of the game's two sticks depends on what the game
+	// does with them. Only CONTROLMODE_PC treats stick as the aim stick and walks off rstick;
+	// every N64 control style (1.1-2.4) walks and turns with stick and never reads rstick. Since
+	// SwapSticks is on by default, reading axisMap[0] unconditionally would put movement on the
+	// right stick as soon as the player picks an N64 style.
+	const s32 aim = (optionsGetControlMode(idx) == CONTROLMODE_PC) ? 0 : 1;
+	const s32 move = aim ^ 1;
 
-	leftX = inputAxisScale(leftX, cfg->deadzone[cfg->axisMap[0][0]], cfg->sens[cfg->axisMap[0][0]]);
-	leftY = inputAxisScale(leftY, cfg->deadzone[cfg->axisMap[0][1]], cfg->sens[cfg->axisMap[0][1]]);
-	rightX = inputAxisScale(rightX, cfg->deadzone[cfg->axisMap[1][0]], cfg->sens[cfg->axisMap[1][0]]);
-	rightY = inputAxisScale(rightY, cfg->deadzone[cfg->axisMap[1][1]], cfg->sens[cfg->axisMap[1][1]]);
+	s32 stickX = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[aim][0]);
+	s32 stickY = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[aim][1]);
+	s32 rstickX = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[move][0]);
+	s32 rstickY = SDL_GameControllerGetAxis(pads[idx], cfg->axisMap[move][1]);
 
-	if (!npad->stick_x && leftX) {
-		npad->stick_x = leftX / 0x100;
+	stickX = inputAxisScale(stickX, cfg->deadzone[cfg->axisMap[aim][0]], cfg->sens[cfg->axisMap[aim][0]]);
+	stickY = inputAxisScale(stickY, cfg->deadzone[cfg->axisMap[aim][1]], cfg->sens[cfg->axisMap[aim][1]]);
+	rstickX = inputAxisScale(rstickX, cfg->deadzone[cfg->axisMap[move][0]], cfg->sens[cfg->axisMap[move][0]]);
+	rstickY = inputAxisScale(rstickY, cfg->deadzone[cfg->axisMap[move][1]], cfg->sens[cfg->axisMap[move][1]]);
+
+	if (!npad->stick_x && stickX) {
+		npad->stick_x = stickX / 0x100;
 	}
 
-	s32 stickY = -leftY / 0x100;
-	if (!npad->stick_y && stickY) {
-		npad->stick_y = (stickY == 128) ? 127 : stickY;
+	s32 stickYOut = -stickY / 0x100;
+	if (!npad->stick_y && stickYOut) {
+		npad->stick_y = (stickYOut == 128) ? 127 : stickYOut;
 	}
 
 	if (cfg->stickCButtons) {
 		// rstick emulates C buttons
-		if (rightX < -0x4000) npad->button |= L_CBUTTONS;
-		if (rightX > +0x4000) npad->button |= R_CBUTTONS;
-		if (rightY < -0x4000) npad->button |= U_CBUTTONS;
-		if (rightY > +0x4000) npad->button |= D_CBUTTONS;
+		if (rstickX < -0x4000) npad->button |= L_CBUTTONS;
+		if (rstickX > +0x4000) npad->button |= R_CBUTTONS;
+		if (rstickY < -0x4000) npad->button |= U_CBUTTONS;
+		if (rstickY > +0x4000) npad->button |= D_CBUTTONS;
 		npad->rstick_x = 0;
 		npad->rstick_y = 0;
 	} else {
 		// rstick is an analog input
-		if (rightX) {
-			npad->rstick_x = rightX / 0x100;
+		if (rstickX) {
+			npad->rstick_x = rstickX / 0x100;
 		}
-		s32 rStickY = -rightY / 0x100;
-		if (rStickY) {
-			npad->rstick_y = (rStickY == 128) ? 127 : rStickY;
+		s32 rStickYOut = -rstickY / 0x100;
+		if (rStickYOut) {
+			npad->rstick_y = (rStickYOut == 128) ? 127 : rStickYOut;
 		}
 	}
 

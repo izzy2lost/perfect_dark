@@ -137,7 +137,8 @@ s32 inputControllerConnected(s32 idx);
 // returns bitmask of players with assigned controllers
 s32 inputControllerMask(void);
 
-// get/set Input.Player%d.SwapSticks
+// get/set Input.Player%d.SwapSticks; on (the default) means the left stick walks and the right
+// one aims, whichever of the game's two sticks the current control style puts those roles on
 s32 inputControllerGetSticksSwapped(s32 cidx);
 void inputControllerSetSticksSwapped(s32 cidx, s32 swapped);
 
